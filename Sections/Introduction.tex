@@ -1,0 +1,11 @@
+\section{Introduction}
+
+%problem description
+Machine learning algorithms have been broadly applied in various data analytics applications in recent years, which pose new challenges in various aspects. One of such challenge is that the collections of training data to be processed are not only huge but also constantly updated while the real-time performance is expected in many applications. Typical examples include online clustering analysis for clickstream \cite{guha2000clustering}, incremental collaborative filtering analysis for recommendation systems \cite{papagelis2005incremental} etc. All of those applications and solutions share the same spirit, i.e. {\em computing new machine learning model incrementally without retraining the model from the scratch.}
+
+%Database solutions for it
+Similar situation happens in database community, where database instance can be large and versioned and thus {\em database view} is materialized for efficient query response \cite{date2006relational}, maintained to reflect changes from the underlying base relations \cite{gupta1993maintaining, green2007update} and reused to reduce query execution overhead \cite{halevy2001answering}, which plays an important role in data integration \cite{levy1996querying}, query optimization \cite{rajaraman1995answering}, data visualization \cite{brachman1993integrated}. 
+
+Since such view-related problem has been extensively studied from the both theoretical and systematical side in database domain, which targets at improving the query performance, it is natural to apply those ideas to the data analytics problem by regarding models or matrices as view, which has been explored by recent work from some database researchers. 
+
+This paper is organized as follow, in section ....
