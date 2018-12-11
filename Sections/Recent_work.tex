@@ -7,7 +7,7 @@ In this section, some recent works on incrementally maintaining materialized cla
 MauveDB primarily deals with wireless sensor network applications, where data are collected through underlying sensors, fitted with typical statistic model such as regression-based model and interpolation-based model and used for estimating missing or future results. The statistic models learned with those raw data are materialized as {\em model-based views}, which are created with a high-level SQL-like language. Due to the addition or removal of the sensors, raw data are updated constantly, which requires efficient view maintenance strategies. The details of how {\em model-based views} are defined, updated and queried for prediction are provided as follows, which highly depend on the types of statistical model.
 
 \subsubsection{Basic notations}
-We will use capitalized letters (e.g. $H$) to denote matrix, capitalized bold letters (e.g. $\textbf{T}$) to denote tables, lowercase letters (e.g. $x$ and $y$) to denote scalar value, bold lowercase letters (e.g. $\textbf{x}$) to denote variables, lowercase letters with bar (e.g. $\bar{w}$) to denote a vector, $f(*)$ to denote functions ($*$ represents arguments of function $f$). Besides, we use $H_{i,j}$ to denote the value at cell $(i,j)$ in matrix $H$ and use $\bar{w}_i$ to denote $i_{th}$ element in vector $\bar{w}$. We introduce superscript $^{(t)}$ (e.g. $x^{(t)}$) to denote the value of certain variables at the time step $t$ during iterative computation. Based on those notations, we provide notations for each model as follows.
+We will use capitalized letters (e.g. $H$) to denote matrix, capitalized bold letters (e.g. $\textbf{T}$) to denote tables, lowercase letters (e.g. $x$ and $y$) to denote scalar value, bold lowercase letters (e.g. $\textbf{x}$) to denote variables or attributes in the table, letters with bar (e.g. $\bar{w}$) to denote a vector, $f(*)$ to denote functions ($*$ represents arguments of function $f$). Besides, we use $H_{i,j}$ to denote the value at cell $(i,j)$ in matrix $H$ and use $\bar{w}_i$ to denote $i_{th}$ element in vector $\bar{w}$. We introduce superscript $^{(t)}$ (e.g. $x^{(t)}$) to denote the value of certain variables at the time step $t$ during iterative computation. Based on those notations, we provide notations for each model as follows.
 
 \paragraph{Regression model}
 A regression model is usually written as the following form:
@@ -542,4 +542,32 @@ But notice that for some extreme case, such as $p=1$, incremental update strateg
     \label{fig:time_space_complexity_general_form}
 \end{figure}
 
+
+\subsection{Discussions}
+
 \section{Incrementally derive new models with existing models}
+In the last two sections, we reviewed related works on how to maintain views in the context of data analysis tasks, where the views can be the model parameters stored as tables in the RDBMS or matrices involved in linear algebra programs. However, given those predefined {\em views}, how to make their content usable for further data analysis tasks becomes another challenge, which is similar to traditional query rewriting using views problem where proper views are selected for answering queries \cite{halevy2001answering}.
+
+In this section, \cite{hasani2018efficient} is introduced, which takes query optimization ideas to construct approximate machine learning models through {\em materialization} and {\em reuse}. The high-level idea of \cite{hasani2018efficient} is that user's issue a ``query'' on some tuples in a dataset for building a machine learning model, which is then approximately (but efficiently) constructed by reusing a set of pre-materialized models instead of from the scratch. When building the model to answer users' requests, \cite{hasani2018efficient} proposes two different approaches, i.e., {\em merging} the pre-materialized model parameters and constructing {\em coresets}, which incur different overhead and theoretical guarantee in terms of approximation but can deal with very general types of machine learning models, such as generalized linear models (GLMs), K-means and Guassian Mixture Models (GMMs).
+
+In what follows, some basic concepts are introduced, which follows by the two approaches, {\em merging} and {\em coreset} approach along with an algorithm on how to find the minimal-cost strategy under some certain type of queries and some extensions in the end.
+
+
+\subsection{Basic concepts}
+The dataset that \cite{hasani2018efficient} is dealing with is a relation $\textbf{D}$ with $n$ tuples, $d$ attributes $\bar{\textbf{a}} = \{\textbf{a}_1, \dots, \textbf{a}_d\}$, which may have hierarchical structures (e.g. attribute $city$ with hierarchical structure $City \rightarrow State \rightarrow Country$) and can be divided into feature attributes $\bar{\textbf{x}}$ and labels attributes $\bar{\textbf{y}}$.
+
+We can issue some queries to extract some tuples from $\textbf{D}$ via some predicates, such as {\em range based predicates} (e.g. $\textbf{a}_1 \in [lb, ub]$) and {\em dimension based predicates} (e.g. $\textbf{a}_2 = `c'$) over some attributes, which are then used for training a machine learning model. The entire approach has two phases, i.e. ``pre-computing phase'' and ``running time phase''. During ``pre-computing phase'', a set of pre-materialized machine learning models $\mathcal{M} = \{M_1, M_2, \dots, M_n\}$ are prepared for answering user query and each $M_i$ corresponds to a query predicate over $\textbf{D}$ which is used to extract tuples from $D$ to construct $M_i$. In the following ``running time phase'', given a user query with a predicate, a set of candidate pre-materialized models are selected for approximately building the requested model.
+
+As mentioned before, \cite{hasani2018efficient} targets at very general machine learning algorithms, such as K-means, GMMs and GLMs, the notations of which are briefly presented below:
+
+\paragraph{K-means} K-means is an unsupervised clustering algorithm, which aims at computing a set of centroids $C$ from a set of data points $X$ and assigning each data point from $X$ to one of centroid in $C$ by minimizing the sum of square errors (SSE) with a similarity measure $d(*)$ in it:
+
+\begin{equation}\label{eq: sse_k_means}
+    SSE(X, C) = \sum_{\bar{x} \in X}d(\bar{x}, C)
+\end{equation}
+
+\paragraph{GMM} GMM is the probabilistic version of K-means, which is parameterized by a set of model parameters $\bar{\theta} = \{(w_1, \bar{\mu_1}, \Sigma_1), (w_2, \bar{\mu_2}, \Sigma_2), \dots, (w_k, \bar{\mu_k}, \Sigma_k)\}$ such that the probability of a data point $\bar{x}$ belonging to a cluster $i$ is computed by the probability density function of normal distribution and weighted by $w_i$, i.e.  $w_i\frac{exp(-\frac{1}{2}(\bar{x}-\bar{\mu}_i)^T\Sigma^{-1}(\bar{x}-\bar{\mu}_i))}{\sqrt{(2\pi)^k|\Sigma|}}$. The model parameters are derived during the training process with EM algorithm.
+
+\paragraph{GLM} GLM includes a large class of typical linear classifiers such as logistic regression and support vector machine (SVM) and also typical regression methods, such as linear regression.
+
+\subsection{Answering query by Merging model}
