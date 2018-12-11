@@ -556,7 +556,8 @@ In what follows, some basic concepts are introduced, which follows by the two ap
 \subsection{Basic concepts}
 The dataset that \cite{hasani2018efficient} is dealing with is a relation $\textbf{D}$ with $n$ tuples, $d$ attributes $\bar{\textbf{a}} = \{\textbf{a}_1, \dots, \textbf{a}_d\}$, which may have hierarchical structures (e.g. attribute $city$ with hierarchical structure $City \rightarrow State \rightarrow Country$) and can be divided into feature attributes $\bar{\textbf{x}}$ and labels attributes $\bar{\textbf{y}}$.
 
-We can issue some queries to extract some tuples from $\textbf{D}$ via some predicates, such as {\em range based predicates} (e.g. $\textbf{a}_1 \in [lb, ub]$) and {\em dimension based predicates} (e.g. $\textbf{a}_2 = `c'$) over some attributes, which are then used for training a machine learning model. The entire approach has two phases, i.e. ``pre-computing phase'' and ``running time phase''. During ``pre-computing phase'', a set of pre-materialized machine learning models $\mathcal{M} = \{M_1, M_2, \dots, M_n\}$ are prepared for answering user query and each $M_i$ corresponds to a query predicate over $\textbf{D}$ which is used to extract tuples from $D$ to construct $M_i$. In the following ``running time phase'', given a user query with a predicate, a set of candidate pre-materialized models are selected for approximately building the requested model.
+We can issue some queries to extract some tuples from $\textbf{D}$ via some predicates, such as {\em range based predicates} (e.g. $\textbf{a}_1 \in [lb, ub]$) and {\em dimension based predicates} (e.g. $\textbf{a}_2 = `c'$) over some attributes, which are then used for training a machine learning model. The entire approach has two phases, i.e. ``pre-computing phase'' and ``running time phase''. During ``pre-computing phase'', a set of pre-materialized machine learning models $\mathcal{M} = \{M_1, M_2, \dots, M_n\}$ are prepared for answering user query and each $M_i$ corresponds to a query predicate over $\textbf{D}$ which is used to extract tuples from $D$ to construct $M_i$. For example, given a relation $D=\{1,2,\dots, 1000\}$, the pre-materialized models $\{M_1, M_2, \dots, M_5\}$ can be built over the range predicate $P_1 = [1, 200], P_2 = [201, 400], \dots, P_5 = [801, 1000]$.
+In the following ``running time phase'', given a user query with a predicate (e.g. $q=[250, 500]$), a set of candidate pre-materialized models are selected for approximately building the requested model.
 
 As mentioned before, \cite{hasani2018efficient} targets at very general machine learning algorithms, such as K-means, GMMs and GLMs, the notations of which are briefly presented below:
 
@@ -570,4 +571,59 @@ As mentioned before, \cite{hasani2018efficient} targets at very general machine 
 
 \paragraph{GLM} GLM includes a large class of typical linear classifiers such as logistic regression and support vector machine (SVM) and also typical regression methods, such as linear regression.
 
-\subsection{Answering query by Merging model}
+\subsection{Constructing models for user query}
+In this subsection, assuming that there exists a set of pre-materialized models $\mathcal{M} = \{M_1, M_2, \dots, M_r\}$ built on different portions of $D$ and there is a user query $q$ over the subset of $D$, i.e. $D_q$, two approaches (i.e. {\em merging model} and {\em coreset construction}) used to obtain an approximate model $\tilde{M}_q$ for $q$ are presented below. 
+
+\subsubsection{Constructing by merging models}
+Suppose we can find a set of candidate pre-materialized machine learning models $\mathcal{M}_q (\subseteq \mathcal{M})$ usable for a user query $q$, {\em merging model} approach simply merges the parameters from each model in $\mathcal{M}_q$ to compute the parameters of the approximate model $\tilde{M}_q$, which varied across different machine learning algorithms.
+
+\paragraph{Merging model for K-means}
+For K-means, each pre-materialized model will store the centroids as the parameters. Suppose the union of the centroids from $\mathcal{M}_q$ is $C_w$ and the cluster represented by a centroid $c_j$ in $C_w$ includes $w_j$ data points from $\textbf{D}$. Then K-means++ \cite{arthur2007k} runs over $C_w$ with weight $w_j$ for each centroid $c_j \in C_w$ to produce k centroids as output, which will be a $O(log k)$-approximate model compared to the one constructed on $D_q$ directly and a $O(log^2k)$-approximate model compared to the optimial model on $D_q$.
+
+\paragraph{Merging model for GMM}
+The main takeaway of the solutions to K-means above is to clustering centroids from the candidate models with further invocations of the clustering algorithm, which, does not work for GMM, although GMM is a generalized model for K-means. This is because 1) the model parameters of GMM include mean vector, covariance matrix and a prior probability, which are far more complicated than K-means and far more expensive to estimate; 2) the merged model may be far away from the one built from the scratch. 
+
+To overcome the issues above, the authors proposed an iterative approach to merge the GMM clusters from the candidate models $\mathcal{M}_q$, which starts by unioning all the cluster parameters from $\mathcal{M}_q$ (denoted by $\theta_q$) with the cluster parameters in the form of $(w_i, \bar{\mu}_i, \Sigma_i)$.
+Then the most similar model pairs with parameters $(w_1, \bar{\mu}_1, \Sigma_1)$ and $(w_2, \bar{\mu}_2, \Sigma_2)$ are determined by Bhattacharyya distance \cite{bhattacharyya1943measure} (denoted by $D_B(*)$, see Equation \ref{eq: db_distance}), which are merged into a single cluster by following Equation \ref{eq: GMM_merging}.
+
+\begin{equation}\label{eq: db_distance}
+\begin{split}
+    D_B(\bar{\mu}_1, \bar{\mu}_2, \Sigma_1, \Sigma_2) &=
+    \frac{1}{8}(\bar{\mu}_1-\bar{\mu}_2)^T\Sigma^{-1}(\bar{\mu}_1 -\bar{\mu}_2) \\&+ \frac{1}{2}ln(\frac{|\Sigma|}{\sqrt{|\Sigma_1||\Sigma_2|}})\\
+    \Sigma &= \frac{\Sigma_1 + \Sigma_2}{2}
+\end{split}
+\end{equation}
+
+\begin{equation}\label{eq: GMM_merging}
+    \begin{split}
+        w &= w_1 + w_2\\
+        \bar{\mu} &= \frac{1}{w}(w_1\bar{\mu}_1 + w_2\bar{\mu}_2)\\
+        \Sigma &= \frac{w_1}{w}[\Sigma_1 + (\bar{\mu}_1 - \bar{\mu})^T(\bar{\mu}_1 -\bar{\mu})]\\
+        &+\frac{w_2}{w}[\Sigma_2 + (\bar{\mu}_2 - \bar{\mu})^T(\bar{\mu}_2 -\bar{\mu})]
+    \end{split}
+\end{equation}
+
+The merging process continues until there are exact k clusters in the end.
+
+
+\paragraph{Merging model for classifiers}
+Suppose for each model $M_i \in \mathcal{M}_q$, the model parameter is $\theta(M_i)$, in order to derive the approximate model $\tilde{M}_q$ for $q$, the model parameters from $\mathcal{M}_q$ are simply averaged, i.e. $\theta(\tilda{M}_q) = \frac{1}{|\mathcal{M}_q|}\Sigma_{M \in \mathcal{M}_q}\theta(M)$, which, however, has been proven by \cite{zhang2012communication} to match the error rate of the model built from the scratch on $D_q$.
+
+\subsection{Answering query by coreset}
+Merging model approach is very efficient since it constructs the approximate model for the user query without having to access the data points but it lacks theoretical guarantee compared to the model built from the scratch for some machine learning algorithms, which can be alleviated by coreset approach.
+
+Specifically, a weighted set of data points $C \subseteq \textbf{D}$ is a $\epsilon-$coreset for $D \subseteq \textbf{D}$ if $C \subseteq D$ and $(1-\epsilon)\phi(D) \leq \phi(C) \leq (1+\epsilon)\phi(D)$ where $\phi$ is the loss function (e.g. Equation \ref{eq: sse_k_means}) and $\phi(D)$ and $\phi(C)$ are the evaluation of $\phi$ over $D$ and $C$. Intuitively, the coreset is a subset of $D$, $C$ such that the machine learning model built on (weighted) $C$ and $D$ are close enough.
+
+Recall that there are two computation phases for constructing approximate model for user query, i.e. {\em pre-computing phase} and {\em running time phase}. In {\em pre-computing phase}, the coreset is constructed for every pre-materialized model while in {\em running time phase}, the coreset is used to construct approximate model for user query, which are illustrated below.
+
+\paragraph{Coreset in pre-computing phase} The coreset is constructed during {\em pre-computing phase} by one common strategy, i.e. sampling the data points proportional to their ``importance'' to the loss function $\phi$. The ``importance'' is quantified by a surrogate function which should be selected to 1) have good approximation ratio compared to the loss function $\phi$; 2) guarantee efficient computation; 3) be  agnostic about the optimal solution computed by $\phi$. So the surrogate function should be varied across different machine learning algorithms. For example, for K-means with loss function shown in Equation \ref{eq: sse_k_means}, given a set of data points $D_i$, the surrogate function is defined as follow:
+
+\begin{equation}\label{eq: surrogate_function}
+    p(x) = \frac{1}{2}\frac{1}{|D_i|} + \frac{1}{2}\frac{d(x, \mu(D_i))^2}{\Sigma_{x'\in D_i}d(x', \mu(D_i))^2}
+\end{equation}
+
+where $\mu(*)$ is used to compute the mean of all $D_i$. This equation is efficient since it only requires two passes over the entire $D_i$ to compute the importance for every $x \in D_i$. After computing the probability for every data point in $D_i$, we can do the probability sampling over the data points from $D_i$, which guarantees that the result is $\epsilon-$coreset according to the proof in \cite{bachem2017scalable}.
+
+\paragraph{Coreset in running time phase} There are two intriguing properties for coreset, which is beneficial to model construction in the running time phase. The first property is the {\em compositional} property, i.e. given the $\epsilon-$coresets $C_1$ and $C_2$ for two datasets $D_1$ and $D_2$, $C_1 \bigcup C_2$ should be also an $\epsilon-$coreset for $D_1 \bigcup D_2$, which can produce a coreset of large size for $D_q$ (the data points that the user query touches) if we union the coresets from all the candidate models from $\mathcal{M}_q$. 
+
+To solve this issue, we employ the second property of coreset, i.e. the size of an $\epsilon-$coreset simply depends on $\epsilon$ and a probability value $\delta$ but independent from the dataset size. For example, with the probability $1-\delta$, to generate a $\epsilon-$coreset, which should have the size at least $\Omega(\frac{dk+log\frac{1}{\delta}}{\epsilon^2})$ where $k$ is the cluster number and $d$ is the dimension number. Suppose each model in $\mathcal{M}_q$ has a coreset of size $m$, by following this property, the coreset construction algorithm can be simply applied over the union of all the coresets from models in $\mathcal{M}_q$ (a set of size $m|\mathcal{M}_q|$) to generate a coreset of size $m$ for $D_q$.
