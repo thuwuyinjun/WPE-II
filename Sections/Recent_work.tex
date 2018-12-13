@@ -1,10 +1,15 @@
 \section{Incrementally maintain classifiers}
 %road map
-In this section, some recent works on incrementally maintaining materialized classifier parameters in database are presented, which initially originates from \cite{deshpande2006mauvedb} and follows by \cite{koc2011incrementally}. Both \cite{deshpande2006mauvedb} and \cite{koc2011incrementally} develop a system (MauveDB vs Hazy) to store typical statistical model parameters as database view in RDBMS and update the views incrementally when raw data are modified.   
+In this section, some recent works on incrementally maintaining model information are presented, which are developed in two different manners. The first one is to maintain materialized classifier parameters in database, which initially originates from \cite{deshpande2006mauvedb} and follows by some other papers such as \cite{gupta2015processing} while the other one is to maintain the classification results by the model for the current data sets, which is from \cite{koc2011incrementally}.
 
-\subsection{MauveDB}
+% develop a system (MauveDB vs Hazy) to store typical statistical model parameters as database view in RDBMS and update the views incrementally when raw data are modified.   
+
+\subsection{Incrementally maintain model parameters}
 %brief description to MauveDB
-MauveDB primarily deals with wireless sensor network applications, where data are collected through underlying sensors, fitted with typical statistic model such as regression-based model and interpolation-based model and used for estimating missing or future results. The statistic models learned with those raw data are materialized as {\em model-based views}, which are created with a high-level SQL-like language. Due to the addition or removal of the sensors, raw data are updated constantly, which requires efficient view maintenance strategies. The details of how {\em model-based views} are defined, updated and queried for prediction are provided as follows, which highly depend on the types of statistical model.
+In this subsection, \cite{deshpande2006mauvedb} and parts of \cite{gupta2015processing} are presented, which aim at incrementally maintaining model parameters in dynamic environment. In \cite{deshpande2006mauvedb}, the authors developed a system called MauveDB, which primarily deals with wireless sensor network applications, where data are collected through underlying sensors, fitted with typical statistic model such as regression-based model and interpolation-based model and used for estimating missing or future results. The statistic models learned with those raw data are materialized as {\em model-based views}.
+% , which are created with a high-level SQL-like language. 
+Due to the addition or removal of the sensors, raw data are updated constantly, which requires efficient view maintenance strategies. Compared to \cite{deshpande2006mauvedb}, \cite{gupta2015processing} deals with similar problem but richer type of machine learning models, which, ultimately, goes towards the reuse of models in analytical workloads. The details on the model introduction, how {\em model-based views} are defined, updated and queried for prediction are provided as follows.
+% which highly depend on the types of statistical model.
 
 \subsubsection{Basic notations}
 We will use capitalized letters (e.g. $H$) to denote matrix, capitalized bold letters (e.g. $\textbf{T}$) to denote tables, lowercase letters (e.g. $x$ and $y$) to denote scalar value, bold lowercase letters (e.g. $\textbf{x}$) to denote variables or attributes in the table, letters with bar (e.g. $\bar{w}$) to denote a vector, $f(*)$ to denote functions ($*$ represents arguments of function $f$). Besides, we use $H_{i,j}$ to denote the value at cell $(i,j)$ in matrix $H$ and use $\bar{w}_i$ to denote $i_{th}$ element in vector $\bar{w}$. We introduce superscript $^{(t)}$ (e.g. $x^{(t)}$) to denote the value of certain variables at the time step $t$ during iterative computation. Based on those notations, we provide notations for each model as follows.
@@ -55,8 +60,77 @@ The goal of interpolation is to estimate missing values of response variables gi
 
 
 
+\paragraph{Logistic regression}
+Logistic regression is a typical linear classifier, which computes the probability of the membership of the data points with logistic function but has linear decision boundary. In the case of binary classification, the model uses the following function to determine the class probability:
 
-\subsubsection{View definition}
+\begin{equation}
+    P(Y=y|\bar{x}) = \frac{1}{1+e^{-y\bar{w}^T\bar{x}}}
+\end{equation}
+
+where $y \in \{-1,1\}$.
+
+To identify the model parameter $\bar{w}^T$ given a set of training data points, $\{(\bar{x}_i, y_i)\}_{i=1}^n$, the following loss function needs to be optimized:
+\begin{equation}\label{eq: logistic_objective_function}
+    F(w) = \frac{1}{n}\Sigma_{i=1}^nL(w;\bar{x}_i, y_i) + \lambda R(\bar{w})
+\end{equation}
+
+where $L$ is the loss function, which is usually the cross entropy loss function as below:
+\begin{equation}\label{eq: logistic_loss_function}
+    L(w; \bar{x}_i, y_i) = y_ilogP(Y=y_i|\bar{x}_i) + (1-y_i)log(1-P(Y=y_i|\bar{x}_i))
+\end{equation}
+
+and $R(\bar{w})$ is the regularization term, which is usually $L2$ term:
+
+\begin{equation}
+    R(\bar{w}) = \bar{w}^T\bar{w}
+\end{equation}
+
+
+By combining Equation \ref{eq: logistic_loss_function}, the loss function in Equation \ref{eq: logistic_objective_function} targets at finding the model parameter $\bar{w}*$ such that the likelihood of the training data set is maximized. 
+
+However, unlike other models such as linear regression, there is closed form of the optimal solution for Equation \ref{eq: logistic_objective_function}, which is thus solved by Stochastic Gradient Descent (SGD) algorithm \cite{robert2014machine} iteratively until it reaches convergence. That is, the parameter $\bar{w}$ is updated as:
+
+\begin{equation}
+    \bar{w} \leftarrow \bar{w} - \alpha \triangledown F_i(\bar{w})
+\end{equation}
+
+where $\triangledown F_i(\bar{w})$ is computed by simply using $i_{th}$ data point for the gradient of the loss function:
+\begin{equation}
+    \triangledown F_i(\bar{w}) = \triangledown L(\bar{w};\bar{x}_i,y_i) + \lambda \bar{w} = y_i\bar{x}_i(1-P(Y=y_i|\bar{x}_i)) + \lambda \bar{w}
+\end{equation}
+
+\paragraph{Naive Bayes} Naive Bayes is a simple probabilistic model, which also computes the membership probability of a data point $\bar{x} = \{x_1, x_2, \dots, x_d\}$ by Bayes theorem:
+
+\begin{equation}\label{eq: bayes_theorem}
+P(Y=c|\bar{x}) = \frac{P(Y=c)P(\bar{x}|Y=c)}{P(\bar{x})}    
+\end{equation}
+
+Under the assumption that the features in $\bar{x}$ are independent from each other, Equation \ref{eq: bayes_theorem} can be rewritten as follows (without caring about the appearance probability of $\bar{x}$):
+
+\begin{equation}\label{eq: nb_exp}
+    P(Y=c|\bar{x}) \propto P(Y=c)\Pi_{i=1}^dP(x_i|Y=c)
+\end{equation}
+
+in which $P(Y=c)$ is usually estimated by the frequency of class $c$. Suppose the size of training data sets is $N$ and the number of data points in class $c$ is $N_c$, then $P(Y=c) = \frac{N_c}{N}$.
+
+In practice, for each class $c$, the calculation of $P(x_i|Y=c)$ depends on the distribution assumptions over the underlying data. Usually, Gaussian distribution is preferred and thus $P(\bar{x}|Y=c)$ is written as:
+
+\begin{equation}\label{eq: nb_guassian}
+    P(\bar{x}|Y=c) = \Pi_{i=1}^dP(x_i|Y=c) = \Pi_{i=1}^dN(x_i|\mu_{jc}, \sigma_{jc}^2)
+\end{equation}
+
+in which $\mu_{jc}$ and $\sigma_{jc}$ are the mean and variance of the $j_{th}$ feature for the data point belonging class $c$. The two parameters can be computed as below given a set of training data set $\{(\bar{x}_i, y_i)\}$($i=1,2,\dots, n$):
+
+\begin{equation}\label{eq: nb_mean}
+    \mu_{jc} = \frac{\Sigma_{i=1}^nx_{ij}[y_i=c]}{N_c}
+\end{equation}
+\begin{equation}\label{eq: nb_var}
+    \sigma_{jc}^2 = \frac{\Sigma_{i=1}^n(x_{ij}[y_i=c])^2}{N_c}-(\frac{\Sigma_{i=1}^nx_{ij}[y_i=c]}{N_c})^2
+\end{equation}
+
+in which $x_{ij}$ represents the value of $j_{th}$ feature from the $i_{th}$ data point and $[y_i=c]$ is an identity function depending on whether the $i_{th}$ data point is in class $c$ or not (it is evaluated to 1 if $y_i$ is $c$ otherwise 0).
+
+\eat{\subsubsection{View definition}
 
 MauveDB developed an declarative SQL-like language for users to define model-based view, which is exemplified in Figure \ref{fig:MauveDB_view_def}. Although different models cannot be manipulated in exactly the same way due to their different characteristics, the commonalities are still leveraged in this language. 
 
@@ -69,10 +143,10 @@ In Figure \ref{fig:MauveDB_view_def}, examples of regression-based view and Inte
     \caption{Define views in MauveDB}
     \label{fig:MauveDB_view_def}
 \end{figure}
-
-\subsubsection{View maintenance}
+}
+\subsubsection{View maintenance strategies}
 %High-level descriptions of view maintenance strategies
-When the new data are available, the updates should be reflected on the model-based views. Four different strategies are developed for this purpose and their trade-offs are discussed with extensive experiments. The details of the four view maintenance strategies are introduced in this section.
+When new data are available, the updates should be reflected on the model-based views. Four different strategies are developed in MauveDB for this purpose and their trade-offs are discussed with extensive experiments. The details of the four view maintenance strategies are introduced in this section.
 
 \textit{Strategy 1: Materialize the views (eager approach)}
 A naive way is simply to construct the models and materialize the model parameters as views in the database, which can avoid unnecessary query execution time when users want to retrieve the ``exact'' model information. However, such views may incur high space overhead and pose a challenge in refreshing the model as new data comes.
@@ -84,9 +158,12 @@ This strategy goes to another extreme without materialization at all in the data
 Somewhere in-between is to partially materialize the view content, which simply caches parts of the views that have been computed by certain queries. When the views are about to be refreshed, the corresponding cached contents in memory will be invalidated.
 
 \textit{Strategy 4: Materialize an intermediate representation}
-Some intermediate representations are materialized in this strategy by leveraging some nice properties of regression model and interpolation model, which have been an efficient solution experimentally and are presented as follows for the two models respectively.
+Some intermediate representations are materialized in this strategy by leveraging some nice properties of regression model and interpolation model, which have been an efficient solution experimentally and are presented as follows for each model respectively.
 
-For regression model, recall that the optimal coefficients can be solved with Equation \ref{eq: regression_solve}. The intermediate representation for it can be simply the materialization of matrix $H^TH$ and $H^T\bar{f}$, which can be beneficial in various aspects. First, the dimensions of the two matrices only rely on the total number of features, which thus won't lead to large space overhead. Besides, efficient updates to the two matrices are achievable since they are computed with linear operators, i.e. matrix multiplications and additions. A newly generated data point $(x',y', temp')$ can trigger the update of $H^TH$ and $H^T\bar{f}$ as follows:
+The specific choice of strategies in practice depends on various factors, such as the query workload, data statistics and types of models. The trade-off between the four strategies are experimentally explored with extensive experiments in \cite{deshpande2006mauvedb}, which shows that the strategy 4 performs best in most scenarios while strategy 1 can actually outperform others in some cases.
+
+\subsubsection{View maintenance for each model}
+\paragraph{view maintenance for regression model} \cite{deshpande2006mauvedb} and \cite{gupta2015processing} deal with regression model based views by applying strategy 4 in the same way. Recall that the optimal coefficients can be solved with Equation \ref{eq: regression_solve}. The intermediate representation for it can be simply the materialization of matrix $H^TH$ and $H^T\bar{f}$, which can be beneficial in various aspects. First, the dimensions of the two matrices only rely on the total number of features, which thus won't lead to large space overhead. Besides, efficient updates to the two matrices are achievable since they are computed with linear operators, i.e. matrix multiplications and additions. A newly generated data point $(x',y', temp')$ can trigger the update of $H^TH$ and $H^T\bar{f}$ as follows:
 \begin{equation}
     (H^TH)^{new}_{i,j} = (H^TH)^{old}_{i,j} + h_i(x',y')*h_j(x',y')
 \end{equation}
@@ -101,9 +178,22 @@ Once the user queries arrive, the coefficient $\bar{w}$ is computed with the fol
 
 which can be computed with time complexity $Q(k^3)$ where $k$ is the total number of features.
 
-For interpolation model, following the example shown in Figure \ref{fig:MauveDB_view_def}, the data in the interpolation-based view $\textbf{V}$ will be of the form $(\textbf{t}, \textbf{v})$ where $\textbf{t}$ represents time while $\textbf{v}$ represents observed value by the sensors. Unlike regression mode, its intermediate representations are not additional data but some additional data structure for searching the values of variable $\textbf{t}$. In order to efficiently estimate the sensor values for time $t'$ which is missing from the view instance but queried by users, the closest values $t_{-}$ and $t_{+}$ (along with the corresponding sensor values $v_{-}$ and $v_{+}$) to $t'$ are retrieved with the auxillary data structure such that $t'$ lies in the interval $(t_{-}, t_{+})$ with no other $\textbf{t}$ value from $\textbf{V}$ in it. So the estimated sensor value at time $t'$ can be computed using Equation \ref{eq: interpolation}.
+\paragraph{View maintenance for interpolation model} \cite{deshpande2006mauvedb} also processes interpolation model, in which the data in the interpolation-based view $\textbf{V}$ will be of the form $(\textbf{t}, \textbf{v})$ where $\textbf{t}$ represents time while $\textbf{v}$ represents observed value by the sensors. Unlike regression mode, its intermediate representations are not additional data but some additional data structure for searching the values of variable $\textbf{t}$. In order to efficiently estimate the sensor values for time $t'$ which is missing from the view instance but queried by users, the closest values $t_{-}$ and $t_{+}$ (along with the corresponding sensor values $v_{-}$ and $v_{+}$) to $t'$ are retrieved with the auxillary data structure such that $t'$ lies in the interval $(t_{-}, t_{+})$ with no other $\textbf{t}$ value from $\textbf{V}$ in it. So the estimated sensor value at time $t'$ can be computed using Equation \ref{eq: interpolation}.
 
-The specific choice of strategies in practice depends on various factors, such as the query workload, data statistics and types of models. The trade-off between the four strategies are experimentally explored with extensive experiments in \cite{deshpande2006mauvedb}, which shows that the strategy 4 performs best in most scenarios while strategy 1 can actually outperform others in some cases.
+
+\paragraph{View maintenance for Naive Bayes model}
+As mentioned before, \cite{gupta2015processing} deals richer types of machine learning models such Naive Bayes model and logistic regression model, which still follows the ideas of strategy 4 to maintain the model-based views. In terms of Naive Bayes model, based on Equation \ref{eq: nb_exp} and Equation \ref{eq: nb_guassian}, the membership probability depends on the values of $N_c$, $\mu_{jc}$ and $\sigma_{jc}^2$, in which $\mu_{jc}$ and $\sigma_{jc}^2$ require the sum and square of sum of the feature values within the class $c$ (denoted as $S_{jc}$ and $SS_{jc}$ respectively). So $N_c$, $S_{jc}$ and $SS_{jc}$ are materialized. When a new data point $\bar{x}, y$ comes where $\bar{x} = \{x_1, x_2, \dots, x_d\}$, $N_c$, $S_{jc}$ and $SS_{jc}$ is updated as:
+
+\begin{equation}
+    \begin{split}
+        N_c' &= N_c + [y=c]\\
+        S_{jc}' &= S_{jc} + x_j[y=c]\\
+        SS_{jc}'&= SS_{jc} + x_j^2[y=c]
+    \end{split}
+\end{equation}
+
+\paragraph{View maintenance for logistic regression model}
+Unlike the machine learning models discussed above, there is no closed-form solution for logistic regression model, which requires gradient descent algorithm with non-linear operator (i.e. logistic function) involved to derive the model parameters. 
 
 \subsection{Hazy}
 Hazy is another system for incrementally maintaining classifiers in RDBMS, which extends and improves MauveDB in the following aspects. 1) more linear classifers are supported, including support vector machines, ridge regression and logistic regression; 2) both eager and lazy strategies used in MauveDB are optimized by speeding up the updates and read operations.
@@ -634,10 +724,10 @@ where $\mu(*)$ is used to compute the mean of all $D_i$. This equation is effici
 To solve this issue, we employ the second property of coreset, i.e. the size of an $\epsilon-$coreset simply depends on $\epsilon$ and a probability value $\delta$ but independent from the dataset size. For example, with the probability $1-\delta$, to generate a $\epsilon-$coreset, which should have the size at least $\Omega(\frac{dk+log\frac{1}{\delta}}{\epsilon^2})$ where $k$ is the cluster number and $d$ is the dimension number. Suppose each model in $\mathcal{M}_q$ has a coreset of size $m$, by following this property, the coreset construction algorithm is applied over the union of all the coresets from models in $\mathcal{M}_q$ (a set of size $m|\mathcal{M}_q|$) to generate a coreset of size $m$ for $D_q$.
 
 
-\subsection{Optimizing the execution strategy}
+\subsection{Optimizing the execution strategy}\label{sec: opt}
 In the last subsection, we assume that the candidate model set $\mathcal{M}_q$ is given for a user query $q$ and analyze how to construct approximate models with $\mathcal{M}_q$ with {\em merging model} approach or {\em coreset} approach. However, in practice, there can be multiple possible options for $\mathcal{M}_q$. For example, let us revisit Example \ref{eg: two_phase_eg}, to construct model for query $q$, there are two candidate model sets. The first one is $\{M_1, M_2\}$, which exactly covers the range predicate of $q$ and thus can be combined directly to build the model for $q$. The other option is to train an auxiliary model $M'$ for the range $[250, 300]$ and combine $M'$, $M_3$ (with predicate $[300, 900]$) and $M_4$ (with predicate $[900, 1000]$) for the same purpose. 
 
-To compare those different options and thus find the best ones, the authors introduce cost measures for the cost of building model from the scratch $C_{build}$, combining models with {\em merging model} approach (denoted by $C_{merge}$) or {\em coreset} approach (denoted by $C_{coreset}$) to evaluate the total overhead for each option. For Example \ref{eg: two_phase_eg}, suppose {\em merging model} approach is used, then the cost of the first option and second option above will be $C_{merge}(M_1) + C_{merge}(M_2)$ and $C_{build}(M') + C_{merge}(M_3) + C_{merge}(M_4)$ respectively. 
+\paragraph{Cost measure} To compare those different options and thus find the best ones, the authors introduce cost measures for the cost of building model from the scratch $C_{build}$, combining models with {\em merging model} approach (denoted by $C_{merge}$) or {\em coreset} approach (denoted by $C_{coreset}$) to evaluate the total overhead for each option. For Example \ref{eg: two_phase_eg}, suppose {\em merging model} approach is used, then the cost of the first option and second option above will be $C_{merge}(M_1) + C_{merge}(M_2)$ and $C_{build}(M') + C_{merge}(M_3) + C_{merge}(M_4)$ respectively. 
 
 Then the problem of determining the best option is formulated as the shortest path problem in the graph, where the node set is composed of the distinct lower bound and upper bound values of all the range predicates from the pre-materialized models as well as the query (with predicate $[lb, ub]$) while weighted edge is built from node $a$ to node $b$ such that $a < b$. The weight on every edge from node $a$ to $b$ represents the cost to ``cover'' the interval $[a,b]$, which depends on whether there exists a pre-materialized model built over this interval. If not, then the weight is $C_{build}([a,b])$. Otherwise, the weight will be $C_{merge}([a,b])$ for merging model approach or $C_{merge}([a,b]) + C_{coreset}([a,b])$ for coreset approach. Then we run Dijkstra's algorithm over the graph to determine the shortest path from the node $lb$ to the node $ub$. Note that before the graph constructing process, only the ``relevant'' pre-materialized models are considered, which have predicates fully included by the query predicate. Let us revisit Example \ref{eg: two_phase_eg} to see how the graph is constructed.
 
@@ -680,3 +770,17 @@ In Example \ref{eg: two_phase_eg}, $M_0$ is not relevant model for $q$ since the
 \end{figure}
 
 \end{example}
+
+\subsection{selecting models for pre-materialization}\label{sec: select_models}
+The authors also explored how to select models for pre-materialization given a set of queries from a workload, which is resolved with two stages, i.e. {\em candidate generation step} to generate a set of possible models and {\em candidate selection step} to retain the best models from the previous step according to a utility metric.
+
+In the {\em candidate generation step}, given a set of queries $\{Q_1, Q_2, \dots, Q_m\}$ and the corresponding predicates $\{[lb_1, ub_1], [lb_2, ub_2], \dots, [lb_m, ub_m]\}$, the candidate predicate $[l, u]$ is considered such that 1) $l \leq u$; 2) $l, u \in \{lb_1, ub_1, lb_2, ub_2, \dots, lb_m, ub_m\}$; 3) $[l, u]$ is included by at least one $[lb_i, ub_i]$ ($i=1,2,\dots, m$).
+
+In the {\em candidate selection step}, the utility evaluation of a set of candidate pre-materialized models $\mathcal{M} = \{M_1, M_2, \dots, M_k\}$ is determined by the difference between the sum of the cost of answering query $Q_i$ ($i=1,2,\dots, m$) using $\mathcal{M}$ and the sum of the cost to evaluate every $Q_i$ without pre-materializing any models, in which the cost is computed by the shortest path in the graph as constructed in Section \ref{sec: opt}. Then $L$ models with highest utility are selected.
+
+\subsection{For arbitrary queries}
+The previous subsections only consider a type of queries with predicates over one attribute, which cannot represent the general cases in practice since the predicates of the queries may touch multiple attributes or hierarchical attributes, which can incur NP-hard time complexity. Given the cost measure proposed in Section \ref{sec: opt}, how to adapt the search algorithm for optimal strategy and how to select the models for pre-materialization for arbitrary queries are introduced below.
+
+In terms of optimally selecting the pre-materialized models under the existence of multiple attributes in the query predicates, the selected pre-materialized models should cover the data points from $\textbf{D}$ touched by the query and incur minimal cost, which is an instantiation of set cover problem. To derive a set of optimal or nearly optimal pre-materialized models efficiently, a greedy algorithm is proposed, which originates from the greedy algorithm for the set cover problem and sketched as follows: Given a user query $q$, which retrieves a set of data points from $\textbf{D}$, $D_q$, a set of candidate pre-materialized models $\mathcal{M}_q$ can be determined. Then under the cost model proposed in Section \ref{sec: opt}, the model $M \in \mathcal{M}_q$ covering the most data points from $D_q$ with least cost is chosen and the data points covered by $M$ is removed from $D_q$, which proceeds iteratively until $D_q$ becomes empty.
+
+In order to select models for pre-materialization for arbitrary queries, the {\em candidate generation step} and the {\em candidate selection step} are still needed. In the {\em candidate generation step}, all the pairs of $(Q_i, Q_j)$ from the workload which cover $D_i$ and $D_j$ from $\textbf{D}$ respectively are used to compose four candidate models over four set of data points respectively, i.e. $D_i, D_j, D_i \bigcup D_j, D_i \bigcap D_j$. Then same as Section \ref{sec: select_models}, in the {\em candidate selection step}, the $L$ models with the highest utility are chosen for pre-materialization.
