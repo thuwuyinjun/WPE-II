@@ -63,7 +63,7 @@ The goal of interpolation is to estimate missing values of response variables gi
 \paragraph{Logistic regression}
 Logistic regression is a typical linear classifier, which computes the probability of the membership of the data points with logistic function but has linear decision boundary. In the case of binary classification, the model uses the following function to determine the class probability:
 
-\begin{equation}
+\begin{equation}\label{eq: logistic_regression_prob}
     P(Y=y|\bar{x}) = \frac{1}{1+e^{-y\bar{w}^T\bar{x}}}
 \end{equation}
 
@@ -195,16 +195,52 @@ As mentioned before, \cite{gupta2015processing} deals richer types of machine le
 \paragraph{View maintenance for logistic regression model}
 Unlike the machine learning models discussed above, there is no closed-form solution for logistic regression model, which requires gradient descent algorithm with non-linear operator (i.e. logistic function) involved to derive the model parameters. 
 
-\subsection{Hazy}
+As the first step toward incrementally maintain the logistic regression model, a variant of statistical gradient descent, i.e. Mixture Weight Methods \cite{mcdonald2009efficient} is used, which is sketched in Algorithm \ref{alg: mixture weight method}. Intuitively, this algorithm splits the entire dataset into $p$ partitions in the beginning, for each of which the gradient descent algorithm is applied. In the end, the model parameters computed from every partition are averaged as the final output. Then given the training data points $D_q$ on which Algorithm \ref{alg: mixture weight method} is applied, the model parameter derived from each partition is materialized, which forms a parameter array $\bar{P}$. 
+
+To incrementally update the model parameter, the new data points due to the updates are also split into partitions of size $l$ and the model parameter for each partition is derived by applying SGD as Algorithm \ref{alg: mixture weight method} proceeds, which is also added into $\bar{P}$. In the end, the updated model parameter $\bar{w}_{SGD}$ is computed by averaging the parameters from $\bar{P}$. According to \cite{mcdonald2009efficient}, the gap between $\bar{w}_{SGD}$ and the model parameter computed over the updated training data set from the scratch is bounded.
+
+
+\begin{algorithm}[h!] 
+\footnotesize
+%  \SetKwInOut{Input}{Input}
+%  \SetKwInOut{Output}{Output}
+%  \Input{a set of valid view mappings $\mathcal{M}$ for query tuple $t \in Q(D)$, query $Q$}
+
+%  \Output{a set of covering sets $C$}
+ 
+ \For{all $i \in \{1,2,\dots, p\}$}
+ {
+    $\bar{w}_i \leftarrow 0$
+    
+    \For{$t \leftarrow 1$ to T}
+    {
+        \Delta F_{S_i}(\bar{w}) \leftarrow GRADIENT(F_{s_i}(\bar{w}))
+    
+        $\bar{w}_i \leftarrow \bar{w}_i + \lambda(\triangledown F_{S_i}(\bar{w}))$
+    }
+    
+    Aggregate all $\bar{w}_{\mu} = \Sigma_{k=1}^p\mu_k\bar{w}_k$    
+ }
+ 
+ \caption{Mixture weight method}
+ \label{alg: mixture weight method}
+ \end{algorithm}
+
+
+
+
+\subsection{Incrementally maintain classification result}
 Hazy is another system for incrementally maintaining classifiers in RDBMS, which extends and improves MauveDB in the following aspects. 1) more linear classifers are supported, including support vector machines, ridge regression and logistic regression; 2) both eager and lazy strategies used in MauveDB are optimized by speeding up the updates and read operations.
 
 \subsubsection{Views in Hazy}
-\begin{figure}
+
+
+\eat{\begin{figure}
     \centering
     \includegraphics[width=10cm, height=2.5cm]{Figures/Hazy_view.png}
     \caption{Define views in Hazy}
     \label{fig:Hazy_view_def}
-\end{figure}
+\end{figure}}
 
 %intro to view definition
 In Hazy, users can declare views in the way shown in Figure \ref{fig:Hazy_view_def}, in which a {\em classification view} is defined over some entity table (i.e. $Papers$ in Figure \ref{fig:Hazy_view_def}, with Primary key $id$) to identify their type (i.e. $Paper\_area$) with a model trained using some training examples (i.e. $Examples\_papers$) that are derived from original entity table by applying some feature function (i.e. $tf\_bag\_of\_words$ function). So in the end, the content of the classification view is the classification results for the set of entities to be classified, in which each tuple has the form $(id, class)$ where $id$ is the entity id while $class$ is the label for that entity determined by the model. The major difference between eager and lazy strategies in terms of classification view definition is that the former one stores the materialized views in the database while the latter one only keeps views virtual.
@@ -638,9 +674,9 @@ But notice that for some extreme case, such as $p=1$, incremental update strateg
 \section{Incrementally derive new models with existing models}
 In the last two sections, we reviewed related works on how to maintain views in the context of data analysis tasks, where the views can be the model parameters stored as tables in the RDBMS or matrices involved in linear algebra programs. However, given those predefined {\em views}, how to make their content usable for further data analysis tasks becomes another challenge, which is similar to traditional query rewriting using views problem where proper views are selected for answering queries \cite{halevy2001answering}.
 
-In this section, \cite{hasani2018efficient} is introduced, which takes query optimization ideas to construct approximate machine learning models through {\em materialization} and {\em reuse}. The high-level idea of \cite{hasani2018efficient} is that user's issue a ``query'' on some tuples in a dataset for building a machine learning model, which is then approximately (but efficiently) constructed by reusing a set of pre-materialized models instead of from the scratch. When building the model to answer users' requests, \cite{hasani2018efficient} proposes two different approaches, i.e., {\em merging} the pre-materialized model parameters and constructing {\em coresets}, which incur different overhead and theoretical guarantee in terms of approximation but can deal with very general types of machine learning models, such as generalized linear models (GLMs), K-means and Guassian Mixture Models (GMMs).
+In this section, \cite{hasani2018efficient} and part of \cite{gupta2015processing} are introduced, which borrow the ideas from query optimization to construct approximate machine learning models by model {\em reusing} the {\em materialized} model. The high-level idea is that the user issues a ``query'' on some data point in a dataset for building a machine learning model, which is then approximately (but efficiently) constructed by reusing and combining a set of ``relevant'' pre-materialized models. When building the model to answer users' requests, \cite{hasani2018efficient} proposes two different approaches to combining relevant pre-materialized models, i.e., {\em merging} the pre-materialized model parameters or combining their {\em coresets}, which incur different overhead and theoretical guarantee in terms of approximation. \eat{ but can deal with very general types of machine learning models, such as generalized linear models (GLMs), K-means and Guassian Mixture Models (GMMs).} On the other hand, only the first approach in employed in \cite{gupta2015processing}. Similar to query optimization problem, there might be multiple ways to derive the model for user's request, which requires the one with minimal cost.
 
-In what follows, some basic concepts are introduced, which follows by the two approaches, {\em merging} and {\em coreset} approach along with an algorithm on how to find the minimal-cost strategy under some certain type of queries and some extensions in the end.
+Considering the similarity between \cite{hasani2018efficient} and \cite{gupta2015processing}, in what follows, some basic concepts from \cite{hasani2018efficient} are introduced, which follow by the two different approaches to combining the pre-materialized models (as mentioned before) along with an algorithm on how to find the minimal-cost strategy for some limited type of queries and then follow by the sketched solutions to general queries. In the end, the differences between \cite{hasani2018efficient} and \cite{gupta2015processing} are highlighted.
 
 
 \subsection{Basic concepts}
@@ -704,6 +740,10 @@ The merging process continues until there are exact k clusters in the end.
 \paragraph{Merging model for classifiers}
 Suppose for each model $M_i \in \mathcal{M}_q$, the model parameter is $\theta(M_i)$, in order to derive the approximate model $\tilde{M}_q$ for $q$, the model parameters from $\mathcal{M}_q$ are simply averaged, i.e. $\theta(\tilda{M}_q) = \frac{1}{|\mathcal{M}_q|}\Sigma_{M \in \mathcal{M}_q}\theta(M)$, which, however, has been proven by \cite{zhang2012communication} to match the error rate of the model built from the scratch on $D_q$.
 
+\paragraph{Merging model in \cite{gupta2015processing}} Recall that \cite{gupta1993maintaining} deals with different machine learning model from \cite{hasani2018efficient}, i.e. linear regression, Naive Bayes and logistic regression. Logistic regression belongs to GLM and thus the solution mentioned before for classifiers fit very well for it, which is thus not discussed here. But the authors of \cite{hasani2018efficient} show that merging linear models or Naive Bayes models can end up with ``exact'' updated model parameters, which is presented below.
+
+
+
 \subsection{Answering query by coreset}
 Merging model approach is very efficient since it constructs the approximate model for the user query without having to access the data points but it lacks theoretical guarantee compared to the model built from the scratch for some machine learning algorithms, which can be alleviated by coreset approach.
 
@@ -725,11 +765,11 @@ To solve this issue, we employ the second property of coreset, i.e. the size of 
 
 
 \subsection{Optimizing the execution strategy}\label{sec: opt}
-In the last subsection, we assume that the candidate model set $\mathcal{M}_q$ is given for a user query $q$ and analyze how to construct approximate models with $\mathcal{M}_q$ with {\em merging model} approach or {\em coreset} approach. However, in practice, there can be multiple possible options for $\mathcal{M}_q$. For example, let us revisit Example \ref{eg: two_phase_eg}, to construct model for query $q$, there are two candidate model sets. The first one is $\{M_1, M_2\}$, which exactly covers the range predicate of $q$ and thus can be combined directly to build the model for $q$. The other option is to train an auxiliary model $M'$ for the range $[250, 300]$ and combine $M'$, $M_3$ (with predicate $[300, 900]$) and $M_4$ (with predicate $[900, 1000]$) for the same purpose. 
+In the previous subsection, we assume that the candidate model set $\mathcal{M}_q$ is given for a user query $q$ and analyze how to construct approximate models with $\mathcal{M}_q$ with {\em merging model} approach or {\em coreset} approach. However, in practice, there can be multiple possible options for $\mathcal{M}_q$. For example, let us revisit Example \ref{eg: two_phase_eg}, to construct model for query $q$, there are two candidate model sets. The first one is $\{M_1, M_2\}$, which exactly covers the range predicate of $q$ and thus can be combined directly to build the model for $q$. The other option is to train an auxiliary model $M'$ for the range $[250, 300]$ and combine $M'$, $M_3$ (with predicate $[300, 900]$) and $M_4$ (with predicate $[900, 1000]$) for the same purpose. 
 
 \paragraph{Cost measure} To compare those different options and thus find the best ones, the authors introduce cost measures for the cost of building model from the scratch $C_{build}$, combining models with {\em merging model} approach (denoted by $C_{merge}$) or {\em coreset} approach (denoted by $C_{coreset}$) to evaluate the total overhead for each option. For Example \ref{eg: two_phase_eg}, suppose {\em merging model} approach is used, then the cost of the first option and second option above will be $C_{merge}(M_1) + C_{merge}(M_2)$ and $C_{build}(M') + C_{merge}(M_3) + C_{merge}(M_4)$ respectively. 
 
-Then the problem of determining the best option is formulated as the shortest path problem in the graph, where the node set is composed of the distinct lower bound and upper bound values of all the range predicates from the pre-materialized models as well as the query (with predicate $[lb, ub]$) while weighted edge is built from node $a$ to node $b$ such that $a < b$. The weight on every edge from node $a$ to $b$ represents the cost to ``cover'' the interval $[a,b]$, which depends on whether there exists a pre-materialized model built over this interval. If not, then the weight is $C_{build}([a,b])$. Otherwise, the weight will be $C_{merge}([a,b])$ for merging model approach or $C_{merge}([a,b]) + C_{coreset}([a,b])$ for coreset approach. Then we run Dijkstra's algorithm over the graph to determine the shortest path from the node $lb$ to the node $ub$. Note that before the graph constructing process, only the ``relevant'' pre-materialized models are considered, which have predicates fully included by the query predicate. Let us revisit Example \ref{eg: two_phase_eg} to see how the graph is constructed.
+\paragraph{Building execution strategy graph} Based on the cost measure, the problem of determining the min-cost strategy is formulated as the shortest path problem in the {\em execution strategy graph}, where the node set is composed of the distinct lower bound and upper bound values of all the range predicates from the pre-materialized models as well as the query (with predicate $[lb, ub]$) while weighted edge is built from node $a$ to node $b$ such that $a < b$. The weight on every edge from node $a$ to $b$ represents the cost to ``cover'' the interval $[a,b]$, which depends on whether there exists a pre-materialized model built over this interval. If not, then the weight is $C_{build}([a,b])$. Otherwise, the weight will be $C_{merge}([a,b])$ for merging model approach or $C_{merge}([a,b]) + C_{coreset}([a,b])$ for coreset approach. Then we run Dijkstra's algorithm over the graph to determine the shortest path from the node $lb$ to the node $ub$. Note that before the graph constructing process, only the ``relevant'' pre-materialized models are considered, which have predicates fully included by the query predicate. Let us revisit Example \ref{eg: two_phase_eg} to see how the graph is constructed.
 
 \begin{example}
 In Example \ref{eg: two_phase_eg}, $M_0$ is not relevant model for $q$ since the corresponding range predicate $[100, 300]$ is not a subset of the query predicate $[250, 1000]$, which is thrown away. For the predicates of other models which are all relevant and the query predicates, all the lower bound and upper bound values compose the following set: $\{250, 300, 500, 900, 1000\}$, each of which becomes a node in the graph. Assuming the the merging model approach is used, the edges and corresponding weights are then constructed by following the rules mentioned above, which ends up with a graph in Figure \ref{fig:min_cost_graph}. Finally, Dijkstra's algorithm is applied over this graph to derive the shortest path from the node 250 to the node 1000 and thus determine the option with minimal cost.
@@ -784,3 +824,8 @@ The previous subsections only consider a type of queries with predicates over on
 In terms of optimally selecting the pre-materialized models under the existence of multiple attributes in the query predicates, the selected pre-materialized models should cover the data points from $\textbf{D}$ touched by the query and incur minimal cost, which is an instantiation of set cover problem. To derive a set of optimal or nearly optimal pre-materialized models efficiently, a greedy algorithm is proposed, which originates from the greedy algorithm for the set cover problem and sketched as follows: Given a user query $q$, which retrieves a set of data points from $\textbf{D}$, $D_q$, a set of candidate pre-materialized models $\mathcal{M}_q$ can be determined. Then under the cost model proposed in Section \ref{sec: opt}, the model $M \in \mathcal{M}_q$ covering the most data points from $D_q$ with least cost is chosen and the data points covered by $M$ is removed from $D_q$, which proceeds iteratively until $D_q$ becomes empty.
 
 In order to select models for pre-materialization for arbitrary queries, the {\em candidate generation step} and the {\em candidate selection step} are still needed. In the {\em candidate generation step}, all the pairs of $(Q_i, Q_j)$ from the workload which cover $D_i$ and $D_j$ from $\textbf{D}$ respectively are used to compose four candidate models over four set of data points respectively, i.e. $D_i, D_j, D_i \bigcup D_j, D_i \bigcap D_j$. Then same as Section \ref{sec: select_models}, in the {\em candidate selection step}, the $L$ models with the highest utility are chosen for pre-materialization.
+
+\subsection{Differences between \cite{hasani2018efficient} and \cite{gupta2015processing}}
+Both \cite{hasani2018efficient} and \cite{gupta2015processing} mainly deal with queries with range predicates over one attribute, which both determine the minimal-cost execution strategy by building the execution strategy graph with relevant pre-materialized models and the user query (introduced in Section \ref{sec: opt}) and then applying Dijkstra's algorithm over that. The differences between \cite{hasani2018efficient} and \cite{gupta2015processing} lie in the concept of relevant pre-materialized models for a given query and thus the construction of the execution strategy graph.
+
+Recall that
