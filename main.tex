@@ -25,6 +25,8 @@
 \usetikzlibrary{positioning}
 \usetikzlibrary{shapes}
 \newcommand{\eat}[1]{}
+\newenvironment{proof}{\paragraph{Proof:}}{\hfill$\square$}
+
 
 \title{Toward efficient incremental computations in data analytics: a review of recent research}
 \author{wuyinjun }
@@ -43,7 +45,10 @@
 
 
 \input{Sections/Introduction.tex}
-\input{Sections/Recent_work.tex}
+\input{Sections/Preliminaries.tex}
+\input{Sections/Maintain_models.tex}
+\input{Sections/Matrix_view.tex}
+\input{Sections/Model_views_reused.tex}
 \input{Sections/Critique.tex}
 
 \newpage

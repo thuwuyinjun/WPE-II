@@ -1,0 +1,144 @@
+\section{Preliminaries}
+We will use capitalized letters (e.g. $H$) to denote matrix, capitalized bold letters (e.g. $\textbf{T}$) to denote tables, lowercase letters (e.g. $x$ and $y$) to denote scalar value, bold lowercase letters (e.g. $\textbf{x}$) to denote variables or attributes in the table, letters with bar (e.g. $\bar{w}$) to denote a vector, $f(*)$ to denote functions ($*$ represents arguments of function $f$). Besides, we use $H_{i,j}$ to denote the value at cell $(i,j)$ in matrix $H$ and use $\bar{w}_i$ to denote $i_{th}$ element in vector $\bar{w}$. We introduce superscript $^{(t)}$ (e.g. $x^{(t)}$) to denote the value of certain variables at the time step $t$ during iterative computation. For a tuple $t$ in a table $\textbf{T}$, we use $t.attr$ to denote the value of attribute $attr$ in tuple $t$ where $attr$ is in the schema of $\textbf{T}$. Based on those notations, we provide notations for each model as follows.
+
+\paragraph{Regression model}
+A regression model is usually written as the following form:
+\begin{equation}
+\textbf{y}=\sum_{i=1}^kw_ih_i(*)
+\end{equation}
+where $h_i$ represents {\em basis function}, which is a monomial of {\em predictor variables} while $w_i$ represents coefficient of those monomials and $\textbf{y}$ is the {\em response variable}.
+
+For example, in wireless sensor network application, temperature $\textbf{t}$ is measured at a 2D-space with coordinate $\textbf{x}_1$ and $\textbf{x}_2$, which can be computed with the following typical polynomial of the two predictors variables:
+
+\begin{equation}
+\textbf{t}=w_1 + w_2\textbf{x}_1+w_3\textbf{x}_1^2 + w_4\textbf{x}_2+w_5\textbf{x}_2^2
+\end{equation}
+where the basis functions are $\{h_1(\textbf{x}_1,\textbf{x}_2), h_2(\textbf{x}_1,\textbf{x}_2), h_3(\textbf{x}_1,\textbf{x}_2),h_4(\textbf{x}_1,\textbf{x}_2), h_5(\textbf{x}_1,\textbf{x}_2)\}=\{1, \textbf{x}_1, \textbf{x}_1^2, \textbf{x}_2, \textbf{x}_2^2\}$
+
+Given a set of data\eat{ observed from the underlying wireless sensors located at different positions}, $\{\bar{x}_j,y_j\}(j=1,2,\dots,n)$, where $\bar{x}_j=\{x_{j1},x_{j2}, \dots, x_{jr}\}$, the coefficients $\bar{w}^* = \{w_1,w_2,\dots,w_k\}$ are estimated with the following linear system:
+\begin{equation}\label{eq: regression_solve}
+    H^TH\bar{w}^*=H^T\bar{y}
+\end{equation}
+
+where $H$ is:
+\begin{equation}
+    H=\begin{bmatrix}
+h_1(\bar{x}_1) & h_2(\bar{x}_1) &\dots &h_k(\bar{x}_1)\\
+h_1(\bar{x}_2) & h_2(\bar{x}_2) &\dots &h_k(\bar{x}_2)\\
+\dots\\
+h_1(\bar{x}_n) & h_2(\bar{x}_n) &\dots &h_k(\bar{x}_n)
+\end{bmatrix}
+\end{equation}
+
+and $\bar{y}$ is:
+
+\begin{equation}
+    \bar{y} = \{y_1, y_2,\dots, y_n\}^T
+\end{equation}
+
+In general, $H$ will be a matrix which represents data sets of $n$ data points with $k$ features while $\bar{y}$ represents the label vectors. But in practice, usually the simple case is considered where the exponent of the predictor variables is 1 and there is no cross terms, which means that $h_j(\bar{x}_i) = x_{ij}$ and thus $H$ becomes:
+
+\begin{equation}
+    H=\begin{bmatrix}
+x_{11} & x_{12} &\dots &x_{1k}\\
+x_{21} & x_{22} &\dots &x_{2k}\\
+\dots\\
+x_{n1} & x_{n2} &\dots &x_{nk}\\
+\end{bmatrix}
+=\begin{bmatrix}
+\bar{x}_1\\
+\bar{x}_2\\
+\dots\\
+\bar{x}_n\\
+\end{bmatrix}
+\end{equation}
+
+
+\paragraph{Interpolation model} 
+
+The goal of interpolation is to estimate missing values of response variables given values of the predictor variables, which does not exist in the set of existing value pair for predictor variable and response variable. Specifically, given a variable pair $(\textbf{t},\textbf{v})$ and a set of observations for those two variables, $(t_i, v_i)(i=1,2,\dots,n)$ are then used to estimate value $v'$ of variable $\textbf{v}$ given a value $t'$ of variable $\textbf{t}$ $(t_j< t' < t_{j+1})$. Usually, {\em linear interpolation} is used. So $v'$ is estimated with value pair $(t_j, v_j)$ and $(t_{j+1}, v_{j+1})$ as follows:
+\begin{equation}\label{eq: interpolation}
+    v'= v_j + (v_{j+1}-v_j)\times\frac{t'-t_j}{t_{j+1}-t_j}
+\end{equation}
+
+
+
+\paragraph{Logistic regression}
+Logistic regression is a typical linear classifier, which computes the probability of the membership of the data points with logistic function but has linear decision boundary. In the case of binary classification, the model uses the following function to determine the class probability:
+
+\begin{equation}\label{eq: logistic_regression_prob}
+    P(\textbf{y}=y|\bar{x}) = \frac{1}{1+e^{-y\bar{w}^T\bar{x}}}
+\end{equation}
+
+where $y \in \{-1,1\}$.
+
+To identify the model parameter $\bar{w}^T$ given a set of training data points, $\{(\bar{x}_i, y_i)\}_{i=1}^n$, the following loss function needs to be optimized:
+\begin{equation}\label{eq: logistic_objective_function}
+    F(\bar{w}) = \frac{1}{n}\Sigma_{i=1}^nL(\bar{w};\bar{x}_i, y_i) + \lambda R(\bar{w})
+\end{equation}
+
+where $L$ is the loss function, which is usually the cross entropy loss function as below:
+\begin{equation}\label{eq: logistic_loss_function}
+    L(\bar{w}; \bar{x}_i, y_i) = y_ilogP(\textbf{y}=y_i|\bar{x}_i) + (1-y_i)log(1-P(\textbf{y}=y_i|\bar{x}_i))
+\end{equation}
+
+and $R(\bar{w})$ is the regularization term, which is usually $L2$ term:
+
+\begin{equation}
+    R(\bar{w}) = \bar{w}^T\bar{w}
+\end{equation}
+
+
+By combining Equation \ref{eq: logistic_loss_function}, the loss function in Equation \ref{eq: logistic_objective_function} targets at finding the model parameter $\bar{w}*$ such that the likelihood of the training data set is maximized. 
+
+However, unlike other models such as linear regression, there is closed form of the optimal solution for Equation \ref{eq: logistic_objective_function}, which is thus solved by Stochastic Gradient Descent (SGD) algorithm \cite{robert2014machine} iteratively until it reaches convergence. That is, the parameter $\bar{w}$ is updated as:
+
+\begin{equation}
+    \bar{w} \leftarrow \bar{w} - \alpha \triangledown F_i(\bar{w})
+\end{equation}
+
+where $\triangledown F_i(\bar{w})$ is computed by simply using $i_{th}$ data point for the gradient of the loss function:
+\begin{equation}
+    \triangledown F_i(\bar{w}) = \triangledown L(\bar{w};\bar{x}_i,y_i) + \lambda \bar{w} = y_i\bar{x}_i(1-P(\textbf{y}=y_i|\bar{x}_i)) + \lambda \bar{w}
+\end{equation}
+
+\paragraph{Naive Bayes} Naive Bayes is a simple probabilistic model, which also computes the membership probability of a data point $\bar{x} = \{x_1, x_2, \dots, x_d\}$ by Bayes theorem:
+
+\begin{equation}\label{eq: bayes_theorem}
+P(\textbf{y}=c|\bar{x}) = \frac{P(\textbf{y}=c)P(\bar{x}|\textbf{y}=c)}{P(\bar{x})}    
+\end{equation}
+
+Under the assumption that the features in $\bar{x}$ are independent from each other, Equation \ref{eq: bayes_theorem} can be rewritten as follows (without caring about the appearance probability of $\bar{x}$):
+
+\begin{equation}\label{eq: nb_exp}
+    P(\textbf{y}=c|\bar{x}) \propto P(\textbf{y}=c)\Pi_{i=1}^dP(x_i|\textbf{y}=c)
+\end{equation}
+
+in which $P(\textbf{y}=c)$ is usually estimated by the frequency of class $c$. Suppose the size of training data sets is $N$ and the number of data points in class $c$ is $N_c$, then $P(\textbf{y}=c) = \frac{N_c}{N}$.
+
+In practice, for each class $c$, the calculation of $P(x_i|\textbf{y}=c)$ depends on the distribution assumptions over the underlying data. Usually, Gaussian distribution is preferred and thus $P(\bar{x}|\textbf{y}=c)$ is written as:
+
+\begin{equation}\label{eq: nb_guassian}
+    P(\bar{x}|\textbf{y}=c) = \Pi_{i=1}^dP(x_i|\textbf{y}=c) = \Pi_{i=1}^dN(x_i|\mu_{jc}, \sigma_{jc}^2)
+\end{equation}
+
+in which $\mu_{jc}$ and $\sigma_{jc}$ are the mean and variance of the $j_{th}$ feature for the data point belonging class $c$. The two parameters can be computed as below given a set of training data set $\{(\bar{x}_i, y_i)\}$($i=1,2,\dots, n$):
+
+\begin{equation}\label{eq: nb_mean}
+    \mu_{jc} = \frac{\Sigma_{i=1}^nx_{ij}[y_i=c]}{N_c}
+\end{equation}
+\begin{equation}\label{eq: nb_var}
+    \sigma_{jc}^2 = \frac{\Sigma_{i=1}^n(x_{ij}[y_i=c])^2}{N_c}-(\frac{\Sigma_{i=1}^nx_{ij}[y_i=c]}{N_c})^2
+\end{equation}
+
+in which $x_{ij}$ represents the value of $j_{th}$ feature from the $i_{th}$ data point and $[y_i=c]$ is an identity function depending on whether the $i_{th}$ data point is in class $c$ or not (it is evaluated to 1 if $y_i$ is $c$ otherwise 0).
+
+\paragraph{K-means} K-means is an unsupervised clustering algorithm, which aims at computing a set of centroids $C$ from a set of data points $\{\bar{x}_i\}$($i=1,2\dots,n$) and assigning each data point from $\{\bar{x}_i\}$ to one of centroid in $C$ by minimizing the sum of square errors (SSE) with a similarity measure $d(*)$ in it:
+
+\begin{equation}\label{eq: sse_k_means}
+    SSE = \sum_{i=1}^nd(\bar{x}_i, C)
+\end{equation}
+
+\paragraph{GMM} GMM is the probabilistic version of K-means, which is parameterized by a set of model parameters $\bar{\theta} = \{(w_1, \bar{\mu_1}, \Sigma_1), (w_2, \bar{\mu_2}, \Sigma_2), \dots, (w_k, \bar{\mu_k}, \Sigma_k)\}$ such that the probability of a data point $\bar{x}$ belonging to a cluster $i$ is computed by the probability density function of normal distribution and weighted by $w_i$, i.e.  $w_i\frac{exp(-\frac{1}{2}(\bar{x}-\bar{\mu}_i)^T\Sigma^{-1}(\bar{x}-\bar{\mu}_i))}{\sqrt{(2\pi)^k|\Sigma|}}$. The model parameters are derived during the training process with EM algorithm.
+
+\paragraph{GLM} GLM includes a large class of typical linear classifiers such as logistic regression and support vector machine (SVM) and also typical regression methods, such as linear regression.

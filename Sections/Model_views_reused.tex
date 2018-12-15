@@ -1,0 +1,289 @@
+\section{Incrementally derive new models with existing models}
+In the last two sections, we reviewed related works on how to maintain views in the context of data analysis tasks, where the views can be the model parameters stored as tables in the RDBMS or matrices involved in linear algebra programs. However, given those predefined {\em views}, how to make their content usable for further data analysis tasks becomes another challenge, which is similar to traditional query rewriting using views problem where proper views are selected for answering queries \cite{halevy2001answering}.
+
+In this section, \cite{hasani2018efficient} and part of \cite{gupta2015processing} are introduced, which borrow the ideas from query optimization to construct approximate machine learning models by model {\em reusing} the {\em materialized} model. The high-level idea is that the user issues a ``query'' on some data point in a dataset for building a machine learning model, which is then approximately (but efficiently) constructed by reusing and combining a set of ``relevant'' pre-materialized models. When building the model to answer users' requests, \cite{hasani2018efficient} proposes two different approaches to combining relevant pre-materialized models, i.e., {\em merging} the pre-materialized model parameters or combining their {\em coresets}, which incur different overhead and theoretical guarantee in terms of approximation. \eat{ but can deal with very general types of machine learning models, such as generalized linear models (GLMs), K-means and Guassian Mixture Models (GMMs).} On the other hand, only the first approach in employed in \cite{gupta2015processing}. Similar to query optimization problem, there might be multiple ways to derive the model for user's request, which requires the one with minimal cost.
+
+Considering the similarity between \cite{hasani2018efficient} and \cite{gupta2015processing}, in what follows, some basic concepts from \cite{hasani2018efficient} are introduced, which follow by the two different approaches to combining the pre-materialized models (as mentioned before) along with an algorithm on how to find the minimal-cost strategy for some limited type of queries and then follow by the sketched solutions to general queries. In the end, the differences between \cite{hasani2018efficient} and \cite{gupta2015processing} are highlighted.
+
+
+\subsection{Basic concepts}
+The dataset that \cite{hasani2018efficient} is dealing with is a relation $\textbf{D}$ with $n$ tuples, $d$ attributes $\bar{\textbf{a}} = \{\textbf{a}_1, \dots, \textbf{a}_d\}$, which may have hierarchical structures (e.g. attribute $city$ with hierarchical structure $City \rightarrow State \rightarrow Country$) and can be divided into feature attributes $\bar{\textbf{x}}$ and labels attributes $\bar{\textbf{y}}$.
+
+We can issue some queries to extract some tuples from $\textbf{D}$ via some predicates, such as {\em range based predicates} (e.g. $\textbf{a}_1 \in [lb, ub]$) and {\em dimension based predicates} (e.g. $\textbf{a}_2 = `c'$) over some attributes, which are then used for training a machine learning model. The entire approach has two phases, i.e. ``pre-computing phase'' and ``running time phase''. During ``pre-computing phase'', a set of pre-materialized machine learning models $\mathcal{M} = \{M_1, M_2, \dots, M_n\}$ are prepared for answering user query and each $M_i$ corresponds to a query predicate over $\textbf{D}$ which is used to extract tuples from $D$ to construct $M_i$. In the following ``running time phase'', given a user query with a predicate, a set of candidate pre-materialized models are selected for approximately building the requested model.
+
+\begin{example}\label{eg: two_phase_eg}
+For example, given a relation $\textbf{D}=\{1,2,\dots, 1000\}$, in the pre-computing phase, the pre-materialized models $\{M_0, M_1, M_2, M_3, M_4\}$ can be built over the tuples from $\textbf{D}$ specified by the range predicate $P_0 = [100, 300], P_1 = [250, 500], P_2 = [500, 1000], P_3 = [300, 900], P_4 = [900, 1000]$. 
+
+In the running time phase, a user query with predicate $q=[250, 1000]$ is submitted, for which we can combine $M_1$ and $M_2$ to compute the model for $q$.
+\end{example}
+
+As mentioned before, \cite{hasani2018efficient} targets at very general machine learning algorithms, such as K-means, GMMs and GLMs, the notations of which are briefly presented below:
+
+\paragraph{K-means} K-means is an unsupervised clustering algorithm, which aims at computing a set of centroids $C$ from a set of data points $X$ and assigning each data point from $X$ to one of centroid in $C$ by minimizing the sum of square errors (SSE) with a similarity measure $d(*)$ in it:
+
+\begin{equation}\label{eq: sse_k_means}
+    SSE(X, C) = \sum_{\bar{x} \in X}d(\bar{x}, C)
+\end{equation}
+
+\paragraph{GMM} GMM is the probabilistic version of K-means, which is parameterized by a set of model parameters $\bar{\theta} = \{(w_1, \bar{\mu_1}, \Sigma_1), (w_2, \bar{\mu_2}, \Sigma_2), \dots, (w_k, \bar{\mu_k}, \Sigma_k)\}$ such that the probability of a data point $\bar{x}$ belonging to a cluster $i$ is computed by the probability density function of normal distribution and weighted by $w_i$, i.e.  $w_i\frac{exp(-\frac{1}{2}(\bar{x}-\bar{\mu}_i)^T\Sigma^{-1}(\bar{x}-\bar{\mu}_i))}{\sqrt{(2\pi)^k|\Sigma|}}$. The model parameters are derived during the training process with EM algorithm.
+
+\paragraph{GLM} GLM includes a large class of typical linear classifiers such as logistic regression and support vector machine (SVM) and also typical regression methods, such as linear regression.
+
+\subsection{Constructing models for user query}
+In this subsection, assuming that there exists a set of pre-materialized models $\mathcal{M} = \{M_1, M_2, \dots, M_r\}$ built on different portions of $D$ and there is a user query $q$ over the subset of $D$, i.e. $D_q$, two approaches (i.e. {\em merging model} and {\em coreset construction}) used to obtain an approximate model $\tilde{M}_q$ for $q$ are presented below. 
+
+\subsubsection{Constructing by merging models}
+Suppose we can find a set of candidate pre-materialized machine learning models $\mathcal{M}_q (\subseteq \mathcal{M})$ usable for a user query $q$, {\em merging model} approach simply merges the parameters from each model in $\mathcal{M}_q$ to compute the parameters of the approximate model $\tilde{M}_q$, which varied across different machine learning algorithms.
+
+\paragraph{Merging model for K-means}
+For K-means, each pre-materialized model will store the centroids as the parameters. Suppose the union of the centroids from $\mathcal{M}_q$ is $C_w$ and the cluster represented by a centroid $c_j$ in $C_w$ includes $w_j$ data points from $\textbf{D}$. Then K-means++ \cite{arthur2007k} runs over $C_w$ with weight $w_j$ for each centroid $c_j \in C_w$ to produce k centroids as output, which will be a $O(log k)$-approximate model compared to the one constructed on $D_q$ directly and a $O(log^2k)$-approximate model compared to the optimial model on $D_q$.
+
+\paragraph{Merging model for GMM}
+The main takeaway of the solutions to K-means above is to clustering centroids from the candidate models with further invocations of the clustering algorithm, which, does not work for GMM, although GMM is a generalized model for K-means. This is because 1) the model parameters of GMM include mean vector, covariance matrix and a prior probability, which are far more complicated than K-means and far more expensive to estimate; 2) the merged model may be far away from the one built from the scratch. 
+
+To overcome the issues above, the authors proposed an iterative approach to merge the GMM clusters from the candidate models $\mathcal{M}_q$, which starts by unioning all the cluster parameters from $\mathcal{M}_q$ (denoted by $\theta_q$) with the cluster parameters in the form of $(w_i, \bar{\mu}_i, \Sigma_i)$.
+Then the most similar model pairs with parameters $(w_1, \bar{\mu}_1, \Sigma_1)$ and $(w_2, \bar{\mu}_2, \Sigma_2)$ are determined by Bhattacharyya distance \cite{bhattacharyya1943measure} (denoted by $D_B(*)$, see Equation \ref{eq: db_distance}), which are merged into a single cluster by following Equation \ref{eq: GMM_merging}.
+
+\begin{equation}\label{eq: db_distance}
+\begin{split}
+    D_B(\bar{\mu}_1, \bar{\mu}_2, \Sigma_1, \Sigma_2) &=
+    \frac{1}{8}(\bar{\mu}_1-\bar{\mu}_2)^T\Sigma^{-1}(\bar{\mu}_1 -\bar{\mu}_2) \\&+ \frac{1}{2}ln(\frac{|\Sigma|}{\sqrt{|\Sigma_1||\Sigma_2|}})\\
+    \Sigma &= \frac{\Sigma_1 + \Sigma_2}{2}
+\end{split}
+\end{equation}
+
+\begin{equation}\label{eq: GMM_merging}
+    \begin{split}
+        w &= w_1 + w_2\\
+        \bar{\mu} &= \frac{1}{w}(w_1\bar{\mu}_1 + w_2\bar{\mu}_2)\\
+        \Sigma &= \frac{w_1}{w}[\Sigma_1 + (\bar{\mu}_1 - \bar{\mu})^T(\bar{\mu}_1 -\bar{\mu})]\\
+        &+\frac{w_2}{w}[\Sigma_2 + (\bar{\mu}_2 - \bar{\mu})^T(\bar{\mu}_2 -\bar{\mu})]
+    \end{split}
+\end{equation}
+
+The merging process continues until there are exact k clusters in the end.
+
+
+\paragraph{Merging model for classifiers}
+Suppose for each model $M_i \in \mathcal{M}_q$, the model parameter is $\theta(M_i)$, in order to derive the approximate model $\tilde{M}_q$ for $q$, the model parameters from $\mathcal{M}_q$ are simply averaged, i.e. $\theta(\tilda{M}_q) = \frac{1}{|\mathcal{M}_q|}\Sigma_{M \in \mathcal{M}_q}\theta(M)$, which, however, has been proven by \cite{zhang2012communication} to match the error rate of the model built from the scratch on $D_q$.
+
+\paragraph{Merging model in \cite{gupta2015processing}} Recall that \cite{gupta1993maintaining} deals with different machine learning model from \cite{hasani2018efficient}, i.e. linear regression, Naive Bayes and logistic regression. Logistic regression belongs to GLM and thus the solution mentioned before for classifiers fit very well for it, which is thus not discussed here. But the authors of \cite{hasani2018efficient} show that merging linear models or Naive Bayes models can end up with ``exact'' updated model parameters, which is presented below.
+
+Recall that in Section \ref{sec: view_maintenance_model}, given a set of training data points $D = \{\bar{x}_i, y_i\}(i=1,2,\dots,n)$, the model parameters to be maintained for linear regression model are $H^TH$ and $H^Tf$, where in many cases, $H$ and $f$ are:
+
+\begin{equation}
+    H=\begin{bmatrix}
+x_{11} & x_{12} &\dots &x_{1k}\\
+x_{21} & x_{22} &\dots &x_{2k}\\
+\dots\\
+x_{n1} & x_{n2} &\dots &x_{nk}\\
+\end{bmatrix}
+=\begin{bmatrix}
+\bar{x}_1\\
+\bar{x}_2\\
+\dots\\
+\bar{x}_n\\
+\end{bmatrix}
+\end{equation}
+
+
+\begin{equation}
+    \bar{f} = \{y_1, y_2,\dots, y_n\}^T
+\end{equation}
+
+So $H^TH$ and $H^f$ have the following form:
+\begin{equation}
+    H^TH=\begin{bmatrix}
+HH_{1,1} & HH_{1,2} &\dots HH_{1,k}\\
+HH_{2,1} & HH_{2,2} &\dots HH_{2,k}\\
+\dots\\
+HH_{n,1} & HH_{n,2} &\dots HH_{n,k}\\
+\end{bmatrix}=\begin{bmatrix}
+\Sigma_{j=1}^nx_{j1}x_{j1} & \Sigma_{j=1}^nx_{j1}x_{j2} &\dots \Sigma_{j=1}^nx_{j1}x_{jk}\\
+\Sigma_{j=1}^nx_{j2}x_{j1} & \Sigma_{j=1}^nx_{j2}x_{j2} &\dots \Sigma_{j=1}^nx_{j2}x_{jk}\\
+\dots\\
+\Sigma_{j=1}^nx_{jk}x_{j1} & \Sigma_{j=1}^nx_{jk}x_{j2} &\dots \Sigma_{j=1}^nx_{jk}x_{jk}\\
+\end{bmatrix}
+\end{equation}
+
+\begin{equation}
+    H^Tf=\begin{bmatrix}
+Hf_{1,1} & Hf_{1,2} &\dots Hf_{1,k}\\
+Hf_{2,1} & Hf_{2,2} &\dots Hf_{2,k}\\
+\dots\\
+Hf_{n,1} & Hf_{n,2} &\dots Hf_{n,k}\\
+\end{bmatrix}=\begin{bmatrix}
+\Sigma_{j=1}^nx_{j1}y_{j}\\
+\Sigma_{j=1}^nx_{j2}y_{j}\\
+\dots\\
+\Sigma_{j=1}^nx_{jk}y_{j}\\
+\end{bmatrix}
+\end{equation}
+
+Given two models with materialized parameters $H_1^TH_1$, $H_1^Tf_1$ and $H_2^TH_2$, $H_2^Tf_2$ respectively which are constructed over two sets of data points $D_1$ and $D_2$, if $D_1 \bigcap D_2 = \Phi$, then they are merged as follows (suppose the materialized paramters for the merging model are $H^TH$, $H^Tf$ respectively):
+
+\begin{equation}
+\begin{split}
+{HH}_{i,j} &= {H_1H_1}_{i,j} + {H_2H_2}_{i,j}\\
+{Hf}_{i} &= {H_1f_1}_{i} + {H_2f_2}_{i}
+\end{split}
+\end{equation}
+
+Otherwise,
+
+\begin{equation}
+\begin{split}
+{HH}_{i,j} &= {H_1H_1}_{i,j} + {H_2H_2}_{i,j} - \Sigma_{\bar{x}_k \in D_1 \bigcap D_2}x_{ki}x_{kj} \\
+{Hf}_{i} &= {H_1f_1}_{i} + {H_2f_2}_{i} - \Sigma_{\bar{x}_k \in D_1 \bigcap D_2}x_{ki}y_{k} 
+\end{split}
+\end{equation}
+
+Similarly, for Naive Bayes model, since the values of $N_c$, $S_{jc}$ and $SS_{jc}$ are materialized for maintenance by referencing Section \ref{sec: view_maintenance_model}, given two models with materialized values $N1_c$, $S1_{jc}$, $SS1_{jc}$ and $N2_c$, $S2_{jc}$, $SS2_{jc}$ which are constructed over two sets of data points, $D_1$ and $D_2$, the materialized parameters (denoted by $N_c$, $S_{jc}$ and $SS_{jc}$) for the merging model are:
+
+\begin{equation}
+\begin{split}
+N_c &= N1_c + N2_c-N_c'\\
+S_{jc} &= S1_{jc} + S2_{jc}-S_{jc}'\\
+SS_{jc} &= SS1_{jc} + SS2_{jc}-S_{jc}'\\
+\end{split}
+\end{equation}
+
+where $N_c'$, $S_{jc}'$ and $SS_{jc}'$ are materialized parameters for the model built on the data points in $D_1 \bigcap D_2$.
+
+\subsection{Answering query by coreset}
+Merging model approach is very efficient since it constructs the approximate model for the user query without having to access the data points but it lacks theoretical guarantee compared to the model built from the scratch for some machine learning algorithms, which can be alleviated by coreset approach.
+
+Specifically, a weighted set of data points $C \subseteq \textbf{D}$ is a $\epsilon-$coreset for $D \subseteq \textbf{D}$ if $C \subseteq D$ and $(1-\epsilon)\phi(D) \leq \phi(C) \leq (1+\epsilon)\phi(D)$ where $\phi$ is the loss function (e.g. Equation \ref{eq: sse_k_means}) and $\phi(D)$ and $\phi(C)$ are the evaluation of $\phi$ over $D$ and $C$. Intuitively, the coreset is a subset of $D$, $C$ such that the machine learning model built on (weighted) $C$ and $D$ are close enough.
+
+Recall that there are two computation phases for constructing approximate model for user query, i.e. {\em pre-computing phase} and {\em running time phase}. In {\em pre-computing phase}, the coreset is constructed for every pre-materialized model while in {\em running time phase}, the coreset is used to construct approximate model for user query, which are illustrated below.
+
+\paragraph{Coreset in pre-computing phase} The coreset is constructed during {\em pre-computing phase} by one common strategy, i.e. sampling the data points proportional to their ``importance'' to the loss function $\phi$. The ``importance'' is quantified by a surrogate function which should be selected to 1) have good approximation ratio compared to the loss function $\phi$; 2) guarantee efficient computation; 3) be  agnostic about the optimal solution computed by $\phi$. So the surrogate function should be varied across different machine learning algorithms. For example, for K-means with loss function shown in Equation \ref{eq: sse_k_means}, given a set of data points $D_i$, the surrogate function is defined as follow:
+
+\begin{equation}\label{eq: surrogate_function}
+    p(x) = \frac{1}{2}\frac{1}{|D_i|} + \frac{1}{2}\frac{d(x, \mu(D_i))^2}{\Sigma_{x'\in D_i}d(x', \mu(D_i))^2}
+\end{equation}
+
+where $\mu(*)$ is used to compute the mean of all $D_i$. This equation is efficient since it only requires two passes over the entire $D_i$ to compute the importance for every $x \in D_i$. After computing the probability for every data point in $D_i$, we can do the probability sampling over the data points from $D_i$ to select $m$ data points where $m$ is the input sampling size, which guarantees that the result is $\epsilon-$coreset according to the proof in \cite{bachem2017scalable}.
+
+\paragraph{Coreset in running time phase} There are two intriguing properties for coreset, which is beneficial to model construction in the running time phase. The first property is the {\em compositional} property, i.e. given the $\epsilon-$coresets $C_1$ and $C_2$ for two datasets $D_1$ and $D_2$, $C_1 \bigcup C_2$ should be also an $\epsilon-$coreset for $D_1 \bigcup D_2$, which can produce a coreset of large size for $D_q$ (the data points that the user query touches) if we union the coresets from all the candidate models from $\mathcal{M}_q$. 
+
+To solve this issue, we employ the second property of coreset, i.e. the size of an $\epsilon-$coreset simply depends on $\epsilon$ and a probability value $\delta$ but independent from the dataset size. For example, with the probability $1-\delta$, to generate a $\epsilon-$coreset, which should have the size at least $\Omega(\frac{dk+log\frac{1}{\delta}}{\epsilon^2})$ where $k$ is the cluster number and $d$ is the dimension number. Suppose each model in $\mathcal{M}_q$ has a coreset of size $m$, by following this property, the coreset construction algorithm is applied over the union of all the coresets from models in $\mathcal{M}_q$ (a set of size $m|\mathcal{M}_q|$) to generate a coreset of size $m$ for $D_q$.
+
+
+\subsection{Optimizing the execution strategy}\label{sec: opt}
+In the previous subsection, we assume that the candidate model set $\mathcal{M}_q$ is given for a user query $q$ and analyze how to construct approximate models with $\mathcal{M}_q$ with {\em merging model} approach or {\em coreset} approach. However, in practice, there can be multiple possible options for $\mathcal{M}_q$. For example, let us revisit Example \ref{eg: two_phase_eg}, to construct model for query $q$, there are two candidate model sets. The first one is $\{M_1, M_2\}$, which exactly covers the range predicate of $q$ and thus can be combined directly to build the model for $q$. The other option is to train an auxiliary model $M'$ for the range $[250, 300]$ and combine $M'$, $M_3$ (with predicate $[300, 900]$) and $M_4$ (with predicate $[900, 1000]$) for the same purpose. 
+
+\paragraph{Cost measure} To compare those different options and thus find the best ones, the authors introduce cost measures for the cost of building model from the scratch $C_{build}$, combining models with {\em merging model} approach (denoted by $C_{merge}$) or {\em coreset} approach (denoted by $C_{coreset}$) to evaluate the total overhead for each option. For Example \ref{eg: two_phase_eg}, suppose {\em merging model} approach is used, then the cost of the first option and second option above will be $C_{merge}(M_1) + C_{merge}(M_2)$ and $C_{build}(M') + C_{merge}(M_3) + C_{merge}(M_4)$ respectively. 
+
+\paragraph{Building execution strategy graph} Based on the cost measure, the problem of determining the min-cost strategy is formulated as the shortest path problem in the {\em execution strategy graph}, where the node set is composed of the distinct lower bound and upper bound values of all the range predicates from the pre-materialized models as well as the query (with predicate $[lb, ub]$) while weighted edge is built from node $a$ to node $b$ such that $a < b$. The weight on every edge from node $a$ to $b$ represents the cost to ``cover'' the interval $[a,b]$, which depends on whether there exists a pre-materialized model built over this interval. If not, then the weight is $C_{build}([a,b])$. Otherwise, the weight will be $C_{merge}([a,b])$ for merging model approach or $C_{merge}([a,b]) + C_{coreset}([a,b])$ for coreset approach. Then we run Dijkstra's algorithm over the graph to determine the shortest path from the node $lb$ to the node $ub$. Note that before the graph constructing process, only the ``relevant'' pre-materialized models are considered, which have predicates fully included by the query predicate. Let us revisit Example \ref{eg: two_phase_eg} to see how the graph is constructed.
+
+\begin{example}
+In Example \ref{eg: two_phase_eg}, $M_0$ is not relevant model for $q$ since the corresponding range predicate $[100, 300]$ is not a subset of the query predicate $[250, 1000]$, which is thrown away. For the predicates of other models which are all relevant and the query predicates, all the lower bound and upper bound values compose the following set: $\{250, 300, 500, 900, 1000\}$, each of which becomes a node in the graph. Assuming the the merging model approach is used, the edges and corresponding weights are then constructed by following the rules mentioned above, which ends up with a graph in Figure \ref{fig:min_cost_graph}. Finally, Dijkstra's algorithm is applied over this graph to derive the shortest path from the node 250 to the node 1000 and thus determine the option with minimal cost.
+
+\begin{figure}[t]
+\begin{center}
+\begin{tikzpicture}[grow'=up,scale=0.75]
+% \tikzset{vertex/.style = {shape=circle,draw,minimum size=1.5em}}
+% \tikzset{edge/.style = {->,> = latex'}}
+% vertices
+\node[vertex] (1) at (-2,0) {$250$};
+\node[vertex] (2) at (6,0) {$300$};
+\node[vertex] (3) at (-4,4) {$500$};
+\node[vertex] (4) at (2,8) {$900$};
+\node[vertex] (5) at (8,4) {$1000$};
+%edges
+% \draw[edge] (1) to (3);
+% \path[->]
+% (1) edge[bend left] node[swap] {$\neg$} (2)
+% (2) edge[bend left] node {$\neg$} (1);
+\scriptsize{
+\draw[->] (1) --(3) node[pos=0.5,left]{$C_{merge}([250, 500])$}; 
+\draw[->] (1) --(2) node[pos=0.5,below]{$C_{build}([250, 300])$}; 
+\draw[->] (2) --(3) node[pos=0.6,right]{$C_{build}([300, 500])$}; 
+\draw[->] (3) --(5) node[pos=0.5,above]{$C_{merge}([500, 1000])$};
+\draw[->] (2) --(4) node[pos=0.15,above]{$C_{merge}([300, 900])$};
+\draw[->] (4) --(5) node[pos=0.7,right]{$C_{merge}([900, 1000])$};
+\draw[->] (3) --(4) node[pos=0.5,left]{$C_{build}([500, 900])$};
+\draw[->] (1) --(5) node[pos=0.2,above]{$C_{build}([250, 1000])$};
+\draw[->] (2) --(5) node[pos=0.5,right]{$C_{build}([300, 1000])$};
+\draw[->] (1) --(4) node[pos=0.7,above]{$C_{build}([250, 900])$};}
+% \draw[edge] (2) to (3); 
+% \draw [->] (-0.4,0.3) arc (10:330:20pt);
+\end{tikzpicture}
+\end{center}
+\caption{Graph to determining the option with minimal cost}
+\label{fig:min_cost_graph}
+\end{figure}
+
+\end{example}
+
+\paragraph{Building execution strategy graph in \cite{gupta2015processing}} Observe that when combining two or models to construct new model for the user query in \cite{hasani2018efficient}, more and more data points from $\textbf{D}$ are included rather than removed. For example, in Example \ref{eg: two_phase_eg}, we need to combine the model $M_3$ and $M_4$ toward the construction of the model for query $q$, $M_q$ and the data points that $M_3$ and $M_4$ are built on, i.e. the data points in $[300, 900]$ and $[900, 1000]$, are unioned to indicate that those data points are necessary to build $M_q$.  In contrast, during the combinations of pre-materialized models for linear regression and Naive Bayes, \cite{gupta2015processing} can also handle the case where the unnecessary data points are removed from those models, which thus result in different concepts of {\em relevant} pre-materialized models and thus different ways to construct the execution strategy graphs.
+
+Given a query $q$ with a range predicate $P_q = [lb,ub]$, if a pre-materialized model $M_i$ with range predicate $P_i$ is relevant to $q$ if the intersection of $P_i$ and $P_q$ is not empty or the intersection of $P_i$ and the range predicate of some relevant pre-materialized models is not empty. 
+
+\begin{example}\label{eg: relevant_models}
+For example, if a query $q'$ has range predicate $[100, 500]$, for the pre-materialized models provided in Example \ref{eg: two_phase_eg}, the relevant models should include all of them. Note that although the range predicate of $M_4$ ($[900, 1000]$) does not share the same data point as the range predicate of $q'$ ($[100, 500]$), it has common data with the range predicate of $M_3$, which is a relevant model.
+\end{example}
+
+After the relevant pre-materialized models are determined, the execution strategy graph is constructed in the same way as \cite{hasani2018efficient} does. For example, in Example \ref{eg: relevant_models}, the graph is shown in Figure \ref{fig:min_cost_graph2}.
+
+\begin{figure}[t]
+\begin{center}
+\begin{tikzpicture}[grow'=up,scale=0.75]
+% \tikzset{vertex/.style = {shape=circle,draw,minimum size=1.5em}}
+% \tikzset{edge/.style = {->,> = latex'}}
+% vertices
+\node (0) at (1,-2) {$100$};
+\node (1) at (-2,0) {$250$};
+\node (2) at (4,0) {$300$};
+\node (3) at (-2,2) {$500$};
+\node (4) at (1,4) {$900$};
+\node (5) at (4,2) {$1000$};
+%edges
+% \draw[edge] (1) to (3);
+% \path[->]
+% (1) edge[bend left] node[swap] {$\neg$} (2)
+% (2) edge[bend left] node {$\neg$} (1);
+\scriptsize{
+\draw[-] (1) --(3) ;%node[pos=0.5,left]{$C_{merge}([250, 500])$}; 
+\draw[-] (1) --(2) ; 
+\draw[-] (2) --(3) ; 
+\draw[-] (3) --(5) ;
+\draw[-] (2) --(4) ;
+\draw[-] (4) --(5) ;
+\draw[-] (3) --(4) ;
+\draw[-] (1) --(5) ;
+\draw[-] (2) --(5) ;
+\draw[-] (1) --(4) ;
+\draw[-] (0) --(1) ;
+\draw[-] (0) --(2) ;
+\draw[-] (0) --(3) ;
+\draw[-] (0) --(4) ;
+\draw[-] (0) --(5) ;
+}
+% \draw[edge] (2) to (3); 
+% \draw [->] (-0.4,0.3) arc (10:330:20pt);
+\end{tikzpicture}
+\end{center}
+\caption{Execution strategy graph in \cite{gupta2015processing}}
+\label{fig:min_cost_graph2}
+\end{figure}
+
+Due to the space limit, the edge weights are not shown in Figure \ref{fig:min_cost_graph2}, which is computed similarly to compared to Figure \ref{fig:min_cost_graph}. Then Dijkstra's algorithm is applied to derive the shortest path from $100$ to $500$. Note that different from Figure \ref{fig:min_cost_graph}, the edges in Figure \ref{fig:min_cost_graph2} become undirected, which indicates that for an edge $i-j$ ($i < j$), the path traverse it by either direction. The traversal direction over an edge represents addition or removal of the model over the corresponding data points. For example, one potential minimal path $\mathcal{P}$ in Figure \ref{fig:min_cost_graph2} from $100$ to $500$ would be $100\rightarrow 300 \rightarrow 250 \rightarrow 500$ since $M_0$ and $M_1$ are built on the range predicate $[100, 300]$ and $[250, 500]$ respectively, which can be reused to reduce the cost. The data points within $[100, 300]$ and $[250, 500]$ are included for model construction for $q'$, which is also reflected in the direction of the path $\mathcal{P}$, i.e. $100 \rightarrow 300$ and $250 \rightarrow 500$. However, since there is an overlap between the two range predicates, the data points within $[250, 300]$ should be removed (see the edge direction $300\rightarrow250$ in the path $\mathcal{P}$), which is achieved by constructing another model from the scratch over $[250, 300]$ and combining it with $M_0$ and $M_1$ to remove the effect of the duplicated data points in $[250, 300]$.
+
+\subsection{selecting models for pre-materialization}\label{sec: select_models}
+The authors also explored how to select models for pre-materialization given a set of queries from a workload, which is resolved with two stages, i.e. {\em candidate generation step} to generate a set of possible models and {\em candidate selection step} to retain the best models from the previous step according to a utility metric.
+
+In the {\em candidate generation step}, given a set of queries $\{Q_1, Q_2, \dots, Q_m\}$ and the corresponding predicates $\{[lb_1, ub_1], [lb_2, ub_2], \dots, [lb_m, ub_m]\}$, the candidate predicate $[l, u]$ is considered such that 1) $l \leq u$; 2) $l, u \in \{lb_1, ub_1, lb_2, ub_2, \dots, lb_m, ub_m\}$; 3) $[l, u]$ is included by at least one $[lb_i, ub_i]$ ($i=1,2,\dots, m$).
+
+In the {\em candidate selection step}, the utility evaluation of a set of candidate pre-materialized models $\mathcal{M} = \{M_1, M_2, \dots, M_k\}$ is determined by the difference between the sum of the cost of answering query $Q_i$ ($i=1,2,\dots, m$) using $\mathcal{M}$ and the sum of the cost to evaluate every $Q_i$ without pre-materializing any models, in which the cost is computed by the shortest path in the graph as constructed in Section \ref{sec: opt}. Then $L$ models with highest utility are selected.
+
+\subsection{For arbitrary queries}
+The previous subsections only consider a type of queries with predicates over one attribute, which cannot represent the general cases in practice since the predicates of the queries may touch multiple attributes or hierarchical attributes, which can incur NP-hard time complexity. Given the cost measure proposed in Section \ref{sec: opt}, how to adapt the search algorithm for optimal strategy and how to select the models for pre-materialization for arbitrary queries are introduced below.
+
+In terms of optimally selecting the pre-materialized models under the existence of multiple attributes in the query predicates, the selected pre-materialized models should cover the data points from $\textbf{D}$ touched by the query and incur minimal cost, which is an instantiation of set cover problem. To derive a set of optimal or nearly optimal pre-materialized models efficiently, a greedy algorithm is proposed, which originates from the greedy algorithm for the set cover problem and sketched as follows: Given a user query $q$, which retrieves a set of data points from $\textbf{D}$, $D_q$, a set of candidate pre-materialized models $\mathcal{M}_q$ can be determined. Then under the cost model proposed in Section \ref{sec: opt}, the model $M \in \mathcal{M}_q$ covering the most data points from $D_q$ with least cost is chosen and the data points covered by $M$ is removed from $D_q$, which proceeds iteratively until $D_q$ becomes empty.
+
+In order to select models for pre-materialization for arbitrary queries, the {\em candidate generation step} and the {\em candidate selection step} are still needed. In the {\em candidate generation step}, all the pairs of $(Q_i, Q_j)$ from the workload which cover $D_i$ and $D_j$ from $\textbf{D}$ respectively are used to compose four candidate models over four set of data points respectively, i.e. $D_i, D_j, D_i \bigcup D_j, D_i \bigcap D_j$. Then same as Section \ref{sec: select_models}, in the {\em candidate selection step}, the $L$ models with the highest utility are chosen for pre-materialization.
+
+% \subsection{Differences between \cite{hasani2018efficient} and \cite{gupta2015processing}}
+% Both \cite{hasani2018efficient} and \cite{gupta2015processing} mainly deal with queries with range predicates over one attribute, which both determine the minimal-cost execution strategy by building the execution strategy graph with relevant pre-materialized models and the user query (introduced in Section \ref{sec: opt}) and then applying Dijkstra's algorithm over that. The differences between \cite{hasani2018efficient} and \cite{gupta2015processing} lie in the concept of relevant pre-materialized models for a given query and thus the construction of the execution strategy graph.
