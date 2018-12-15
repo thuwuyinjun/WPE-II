@@ -1,8 +1,8 @@
-\section{Incrementally compute matrix programs}
-Matrix operations are quite ubiquitous in modern data analysis tasks, which usually involve small incremental data analysis where the datasets are dynamic. To effectively propagate the input changes through the matrix operation program to the output, there are some efforts which consider matrix as views and accomplish the goal of incremental view maintenance. One example is Linview \cite{nikolic2014linview}, which targets at converting iterative programs with basic matrix manipulation primitives: matrix addition, multiplication, subtraction, transpose and inverse, into a {\em trigger program} and propagating the {\em delta expressions} via the trigger programs to derive the new output rather than re-evaluating from the scratch. In what follows, how the authors of \cite{nikolic2014linview} model the iterative programs with matrix operations, represent and propagate {\em delta expressions} and deal with typical linear algebra programs are elaborated respectively.
+\subsection{Incrementally maintain the output of general linear algebra programs}
+In data analytics, linear algebra programs are quite ubiquitous, which usually involve updates to the input matrix data. To effectively propagate the updates through the linear algebra program to the output, there are some efforts which materialize the output of the linear algebra programs as views and incrementally maintain the view content. One example is Linview \cite{nikolic2014linview}, which expresses the updates to the input as {\em delta expression} and targets at propagating such {\em delta expression} through the iterative linear algebra programs with basic matrix operations, i.e. matrix addition, multiplication, subtraction, transpose and inverse, to update the result of the programs rather than re-evaluate it from the scratch. In what follows, how the authors of \cite{nikolic2014linview} model the iterative linear algebra programs, represent and propagate {\em delta expressions} through the linear algebra program and deal with typical linear algebra programs are elaborated respectively.
 
-\subsection{Model the iterative programs}\label{sec: iterative_model}
-Iterative computation is very common in data analysis programs, for which naive re-evaluation from the scratch in the case of data updates can incur high over head. Under the assumption that the iterative programs end after a fixed number of iteration steps (even after updates), Linview deals with delta expression propagation through the program under three different iterative models.
+\subsubsection{Model the iterative programs}\label{sec: iterative_model}
+Iterative computation is very common in linear algebra programs, for which naive re-evaluation from the scratch in the case of data updates can incur high overhead. Under the assumption that the iterative programs end after a fixed number of iteration steps (even after updates), Linview deals with delta expression propagation through the program under three different iterative models.
 
 \paragraph{Linear model} The first iterative model is {\em linear model}, which simply updates the result at $k_{th}$ epoch based on the results at $(k-1)_{th}$ epoch. Given the input $A$, the output at epoch $k$ is computed as:
 
@@ -13,7 +13,9 @@ g(T_{k-1}, A) & k=2,3,\dots\\
 \end{cases}
 \]
 
-\paragraph{Exponential model} In the {\em exponential model}, the output at $k_{th}$ epoch depends on the result at $(k/2)_{th}$ epoch, which has larger steps compared to {\em linear model}, i.e.:
+where $f$ and $g$ represent the modified version of the original linear algebra programs that fit the linear model.
+
+\paragraph{Exponential model} In the {\em exponential model}, the output at $k_{th}$ epoch depends on the result at $(k/2)_{th}$ epoch, which has larger leaps compared to {\em linear model}, i.e.:
 
 \[
 T_k=
@@ -34,11 +36,11 @@ h(T_{k-s}, T_{s}, A) & k=s, 2s,\dots
 \end{cases}
 \]
 
-\subsection{Incremental computation}
-This subsection is centered around how Linview represent and propagate delta computation through the linear algebra program, which starts by introducing the incremental updates over matrix manipulation primitives. Matrix multiplications are frequently used in the following analysis, which is assumed to have time complexity $O(n^{\gamma})$ ($2\leq \gamma \leq 3$, varies for different algorithms)
+\subsubsection{Incremental computation}
+This subsection is centered around how Linview represent and propagate delta expression through the linear algebra programs, which starts by introducing the incremental updates over matrix manipulation primitives. Matrix multiplications are frequently used in the following analysis, which is assumed to have time complexity $O(n^{\gamma})$ ($2\leq \gamma \leq 3$, varies for different algorithms)
 
 \paragraph{Delta rules for basic matrix operations}
-Given a matrix $A$ and a function $f(*)$, small changes $\Delta A$ to $A$ leads to the changes of output of $f(A)$ as: $\Delta_A(f) = f(A+\Delta A) - f(A)$. By following the properties of basic matrix operations, such as matrix addition, matrix multiplication and matrix inverse, the delta rule is shown as follows:
+Given an $n \times n$ matrix $A$ and a function $f(*)$, small changes $\Delta A$ to $A$ leads to the changes of output of $f(A)$ as: $\Delta_A(f) = f(A+\Delta A) - f(A)$. By following the properties of basic matrix operations, such as matrix addition, matrix multiplication and matrix inverse, the delta rule is shown as follows:
 
 \begin{center}
     \begin{minipage}{0.4\textwidth}
@@ -51,7 +53,7 @@ Given a matrix $A$ and a function $f(*)$, small changes $\Delta A$ to $A$ leads 
     \end{minipage}
   \end{center}
 
-Note that for most update rules shown above, the time complexity is $O(n^2)$ while in general case, the delta derivation for matrix inverse has the same overhead as reevaluation from the scratch, which is much more expensive than $O(n^2)$. However, under the assumption that $\Delta A$ is relatively small than $A$ and thus have lower rank ($k$) than $A$ ($n$) where $k \ll n$, $\Delta A$ can be decomposed into multiplication of vectors and thus much cheaper for computation, which is called {\em factored form}. For example, given a rank-1 $\Delta A$ ($=\bar{u}\bar{v}^T$), by applying Sherman-Morrison formula \cite{press2007numerical}, $\Delta_A(\lambda f)$ can be written as:
+Note that for most update rules shown above, the time complexity is $O(n^2)$ while in general case, the delta derivation for matrix inverse has the same overhead as reevaluation from the scratch, which is much more expensive than $O(n^2)$. However, under the assumption that $\Delta A$ is relatively smaller than $A$ and thus have lower rank ($k$) than the rank of $A$ (at most $n$) where $k \ll n$, $\Delta A$ can be decomposed into additions and multiplications of vectors and thus much cheaper for computation. The decomposition of $\Delta A$ is called {\em factored form}. For example, given a rank-1 $\Delta A$ ($=\bar{u}\bar{v}^T$), by applying Sherman-Morrison formula \cite{press2007numerical}, $\Delta_A(f^{-1})$ can be written as:
 
 \begin{equation}\label{eq: matrix_inverse}
 \Delta_A(f^{-1}) = -\frac{f(A)^{-1}\bar{u}\bar{v}^Tf(A)^{-1}}{1+\bar{v}^Tf(A)^{-1}\bar{u}}
@@ -69,7 +71,7 @@ For example, consider the following program to compute $A^8$ for an $n\times n$ 
     $D:= CC$
 \end{center}
 
-Given a small change $\Delta A$, such as an update to the entry $A_{i,j}$, $\Delta A_{i,j}$, which has overhead $O(1)$, by applying the delta rules for matrix multiplication mentioned above, $\Delta B$, $\Delta C$ and $\Delta D$ are represented as:
+Given a small change $\Delta A$, such as an update to the entry $A_{i,j}$, $\Delta A_{i,j}$, the time complexity of which is $O(1)$, by applying the delta rules for matrix multiplication mentioned above, $\Delta B$, $\Delta C$ and $\Delta D$ are represented as:
 
 \begin{equation}\label{eq: delta_b}
     \Delta B = (\Delta A) A + A (\Delta A) + (\Delta A) (\Delta A)
@@ -85,7 +87,7 @@ Given a small change $\Delta A$, such as an update to the entry $A_{i,j}$, $\Del
 
 Computing $\Delta B$ only requires $O(n)$ operations since $(\Delta A) A$ and $A (\Delta A)$ only need to scale the $i_{th}$ row and $j_{th}$ column of $A$ by $\Delta A_{i,j}$ respectively, which takes $O(n)$ time while $(\Delta A) (\Delta A)$ only incurs $O(1)$ overhead. In the end, compared to original $B$, the changes caused by $\Delta B$ appear in the $i_{th}$ row and $j_{th}$ column of $B$.
 
-Similarly, we can derive that $\Delta C$ requires $O(n^2)$ operations, which ends up with the full updates to the entire $C$. The effect of update propagation is shown in Figure \ref{fig:update_propagete}.
+Similarly, we can derive that $\Delta C$ requires $O(n^2)$ operations, which ends up with the propagation of the initial updates to the entire $C$. The effect of update propagation is shown in Figure \ref{fig:update_propagete}.
 
 \begin{figure}
     \centering
@@ -98,7 +100,7 @@ Then computing $\Delta D$ involves at least two full $O(n^{\gamma})$ matrix mult
 \end{example}
 
 
-To deal with this unexpected effect, the delta expressions are all represented as Example \ref{eg: incremental_naive_update} indicates, the updates $\Delta A$ is only a change to a single entry $A_{i,j}$, which is a rank-1 update and can be represented as $\Delta A = \bar{u}\bar{v}^T$ where $\bar{u}$ and $\bar{v}$ are both column vectors. Then by replacing $\Delta A$ in Equation \ref{eq: delta_b} with $\bar{u}\bar{v}^T$, $\Delta B$ is rewritten as:
+To deal with such unexpected effect, the delta expressions are all represented as Example \ref{eg: incremental_naive_update} indicates, the updates $\Delta A$ is only a change to a single entry $A_{i,j}$, which is a rank-1 update and can be represented as $\Delta A = \bar{u}\bar{v}^T$ where $\bar{u}$ and $\bar{v}$ are both column vectors. Then by replacing $\Delta A$ in Equation \ref{eq: delta_b} with $\bar{u}\bar{v}^T$, $\Delta B$ is rewritten as:
 \begin{equation}\label{eq: update_b_product}
 \Delta B = \bar{u}(\bar{v}^TA) + (A\bar{u})\bar{v}^T + (\bar{u}\bar{v}^T\bar{u})\bar{v}^T=[\bar{u}, (A\bar{u}), (\bar{u}\bar{v}^T\bar{u})]
 \begin{bmatrix}
@@ -114,9 +116,9 @@ To deal with this unexpected effect, the delta expressions are all represented a
 \end{bmatrix}
 \end{equation}
 
-which is a sum of three outer products. The term $(\bar{v}^TA)$, $(A\bar{u})$ and $(\bar{u}\bar{v}^T\bar{u})$ can be all derived in $O(n^2)$ time while the vector $[\bar{u}, (A\bar{u}), (\bar{u}\bar{v}^T\bar{u})]$ and $[(A^T\bar{v}), \bar{v}, \bar{v}]$ are both $n \times 3$ matrices and thus the product of them requires $O(3n^2)$ operations.
+which is a sum of three outer products between vectors. The term $(\bar{v}^TA)$, $(A\bar{u})$ and $(\bar{u}\bar{v}^T\bar{u})$ can be all derived in $O(n^2)$ time while the vector $[\bar{u}, (A\bar{u}), (\bar{u}\bar{v}^T\bar{u})]$ and $[(A^T\bar{v}), \bar{v}, \bar{v}]$ are both $n \times 3$ matrices and thus computing $\Delta B$ in this way requires $O(3n^2)$ operations.
 
-In general, all the delta expressions can be expressed as a product of two $n \times k$ matrices where $k \ll n$, which only requires $O(kn^2)$ operations, although it is more expensive than naive updates for $\Delta B$ as shown in Example \ref{eg: incremental_naive_update}. For example, for $\Delta C$, since it is a sum of three products and each of them can be expressed as a product of two $n \times 3$ matrices by inserting Equation \ref{eq: update_b_product} to Equation \ref{eq: delta_c}, $\Delta C$ can thus be expressed as a a product of two $n \times 9$ matrices:
+Although it is more expensive than naive updates for $\Delta B$ as shown in Example \ref{eg: incremental_naive_update}, in general, all the delta expressions can be expressed as a product of two $n \times k$ matrices where $k \ll n$, which only requires $O(kn^2)$ operations. For example, for $\Delta C$, since it is a sum of three products, i.e. $\Delta B B$, $B \Delta B$ and $\Delta B \Delta B$, and each of them can be expressed as a product of two $n \times 3$ matrices by inserting Equation \ref{eq: update_b_product} to Equation \ref{eq: delta_c}, $\Delta C$ can thus be expressed as a a product of two $n \times 9$ matrices:
 
 
 \begin{equation}
@@ -177,24 +179,24 @@ Actually, $\Delta B$ can be further optimized as:
 
 which is a product of two $n \times 2$ matrices. Consequently, $\Delta C$ and $\Delta D$ can be represented as a product of two $n \times 4$ matrices and two $n \times 8$ matrices respectively.
 
-\paragraph{Constructing trigger functions}
-Given the derivation rules above, Linview converts the linear algebra program into a set of trigger functions, which takes a set of input matrices and handle the updates of them sequentially. For example, given a set of input matrices $D=\{A, B, \dots\}$ and an evaluation function $f(*)$ over that, then the overall effect of updates will to $f(D)$ will be:
+\paragraph{In the case of programs with multiple inputs}
+Given the derivation rules above, Linview can also handle the case where the linear algebra programs have multiple inputs and each of them may involve updates. \eat{converts the linear algebra program into a set of trigger functions, which takes a set of input matrices and handle the updates of them sequentially. }For example, given a set of input matrices $D=\{A, B, \dots\}$ and an evaluation function $f(*)$ over that, then the overall effect of updates will to $f(D)$ will be:
 
 \begin{equation}\label{eq: updates_by_multi_vars}
-\Delta_{D}(f(D)) = \Delta_{A}(f(D)) + \Delta_{D\\\{A\}}(f(D) + \Delta_{A}(f(D)))
+\Delta_{D}(f(D)) = \Delta_{A}(f(D)) + \Delta_{D \setminus \{A\}}(f(D) + \Delta_{A}(f(D)))
 \end{equation}
 
 
 %  and Linview generates one trigger function for each of them, which is then used to monitor the change of the corresponding input matrix.
 
-\subsection{Incremental analysis for typical programs}
+\subsubsection{Incremental analysis for typical programs}
 The incremental update model above can fit some typical linear algebra programs, such as ordinary least squares, matrix powers and even more general forms, which are illustrated below.
 
-\paragraph{Ordinary least squares}
-Ordinary least squares is a classic regression problem, for which we need to derive the best parameter $\beta^*$ for a linear system, $Y = X\beta$ ($X$ is a $m \times n$ matrix representing predictors while $Y$ is a $m \times p$ matrix for response variables) through statistical estimates. With some typical statistic assumptions, such as Gaussian noise, the best estimates for $\theta$ is $\theta^* = (X^TX)^{-1}X^TY$.
+\paragraph{Regression model}
+Recall that in Section \ref{sec: pre}, for regression model, given an $m \times n$ matrix $X$ for predictor variables and an $m \times p$ matrix $Y$ for response variables,   the coefficient $W^*$ is estimated as $W^* = (X^TX)^{-1}X^TY$.
 
-In practice, the regression model is usually built in a dynamic environment where the incoming new data requires efficient model updates on the basis of the outdated model instead of computing from the scratch every time, for which the performance bottleneck is to update the inverse operation $(X^TX)^{-1}$. We represent $X^TX$ as $Z$. So given a rank-1 update to $X$, i.e. $\Delta X = \bar{u}\bar{v}^T$, $\Delta Z$ can be expressed as:
-\begin{equation}
+In practice, the regression model is usually built in a dynamic environment where the incoming new data requires efficient incremental updates to $W^*$ instead of computing from the scratch every time, for which the performance bottleneck is to update the inverse operation $(X^TX)^{-1}$. We represent $X^TX$ as $Z$. So given a rank-1 update to $X$, i.e. $\Delta X = \bar{u}\bar{v}^T$, $\Delta Z$ can be expressed as:
+\begin{equation}\label{eq: regression_factor}
     \Delta Z = [\bar{v}\ \ (X^T\bar{u} + \bar{v}\bar{u}^T\bar{u})]\begin{bmatrix}
     \bar{u}^T X  \\
     \bar{v}^T  
@@ -205,35 +207,35 @@ In practice, the regression model is usually built in a dynamic environment wher
 \end{bmatrix}=\bar{p}_1\bar{q}_1^T + \bar{p}_2\bar{q}_2^T
 \end{equation}
 
-It has time complexity $O(mn)$ due to the computation of $X^T\bar{u}$, $\bar{v}\bar{u}^T\bar{u}$ and $\bar{u}^TX$, which ends up with a product of two $n\times 2$ matrices and thus a rank-2 update to $Z$. We can further $\Delta Z_1 = \bar{p}_1\bar{q}_1^T$ and $\Delta Z_2 = \bar{p}_2\bar{q}_2^T$ such that $\Delta Z_1$ and $\Delta Z_2$ are both rank-1 matrix. Considering the fact that both $X$ and $\Delta X$ are $m \times n$ matrices and thus $\bar{u}$ and $\bar{v}$ are $m \times 1$ and $n \times 1$ vector respectively, $\bar{p}_1$ and $\bar{q}_2$ should be both $n \times 1$ vectors. Besides, the computation result of $X^T\bar{u}$ and $\bar{v}\bar{u}^T\bar{u}$ are both $n \times 1$ vector and thus $\bar{p}_2$ (sum of $X^T\bar{u}$ and $\bar{v}\bar{u}^T\bar{u}$) should be also $n \times 1$ vector. Similarly, $\bar{q_1}^T$ is also $n \times 1$ vector.
+The time complexity of Equation \ref{eq: regression_factor} is $O(mn)$ due to the computation of $X^T\bar{u}$, $\bar{v}\bar{u}^T\bar{u}$ and $\bar{u}^TX$, which ends up with a product of two $n\times 2$ matrices and thus a rank-2 update to $Z$. We can further represent $\Delta Z$ as the sum of $\Delta Z_1$ and $\Delta Z_1$ where $\Delta Z_1 = \bar{p}_1\bar{q}_1^T$ and $\Delta Z_2 = \bar{p}_2\bar{q}_2^T$ such that $\Delta Z_1$ and $\Delta Z_2$ are both rank-1 matrix. Considering the fact that both $X$ and $\Delta X$ are $m \times n$ matrices and thus $\bar{u}$ and $\bar{v}$ are $m \times 1$ and $n \times 1$ vector respectively, $\bar{p}_1$ and $\bar{q}_2$ should be both $n \times 1$ vectors. Besides, the computation result of $X^T\bar{u}$ and $\bar{v}\bar{u}^T\bar{u}$ are both $n \times 1$ vector and thus $\bar{p}_2$ (sum of $X^T\bar{u}$ and $\bar{v}\bar{u}^T\bar{u}$) should be also $n \times 1$ vector. Similarly, $\bar{q_1}^T$ is also $n \times 1$ vector.
 
-By following Equation \ref{eq: matrix_inverse} and Equation \ref{eq: updates_by_multi_vars}, the update rules for $W = (X^TX)^{-1} = Z^{-1}$ with respect to $\Delta Z_1$ and $\Delta Z_2$ will be:
+By following Equation \ref{eq: matrix_inverse} and Equation \ref{eq: updates_by_multi_vars}, the update rules for $J = (X^TX)^{-1} = Z^{-1}$ with respect to $\Delta Z_1$ and $\Delta Z_2$ will be:
 
 \begin{center}
 \begin{equation}
 \begin{split}
-    \Delta_{Z_1}(W)& = -\frac{W\bar{p}_1\bar{q}_1^TW}{1 + \bar{q}_1^TW\bar{p}_1}\\
-    \Delta_{Z_2}(W)& = -\frac{(W+\Delta_{Z_1}(W))\bar{p}_2\bar{q}_2^T(W+\Delta_{Z_1}(W))}{1 + \bar{q}_2^T(W+\Delta_{Z_1}(W))\bar{p}_2}
+    \Delta_{Z_1}(J)& = -\frac{J\bar{p}_1\bar{q}_1^TJ}{1 + \bar{q}_1^TJ\bar{p}_1}\\
+    \Delta_{Z_2}(J)& = -\frac{(J+\Delta_{Z_1}(J))\bar{p}_2\bar{q}_2^T(J+\Delta_{Z_1}(J))}{1 + \bar{q}_2^T(J+\Delta_{Z_1}(J))\bar{p}_2}
 \end{split}   
 \end{equation}
 \end{center}
 
-while simply computes the rank-1 update $\Delta Z_1$ to $W$ and then accumulate the effect of $\Delta Z_2$ for $W$. $\Delta_{Z_1}$ and $\Delta_{Z_2}$ can be further written as:
+while simply computes the rank-1 update $\Delta Z_1$ to $J$ and then accumulate the effect when propagating $\Delta Z_2$ for $J$. $\Delta_{Z_1}$ and $\Delta_{Z_2}$ can be further written as:
 
 \begin{equation}
 \begin{split}
-\Delta_{Z_1}(W) = \bar{r}_1\bar{s}_1^T\\    
-\Delta_{Z_2}(W) = \bar{r}_2\bar{s}_2^T
+\Delta_{Z_1}(J) = \bar{r}_1\bar{s}_1^T\\    
+\Delta_{Z_2}(J) = \bar{r}_2\bar{s}_2^T
 \end{split}
 \end{equation}
 
-where $\bar{r}_1 = W\bar{p}_1$, $\bar{r}_2 = (W+\Delta_{Z_1}(W))\bar{p}_2$ while $\bar{s}_1$ and $\bar{s}_2$ are the rest of the subexpressions of $\Delta_{Z_1}(W)$ and $\Delta_{Z_2}(W)$ respectively. So the overall updates to $W$ is $\Delta W = \bar{r}_1\bar{s}_1^T + \bar{r}_2\bar{s}_2^T$, which is a rank-2 update.
-Since $\bar{p}_i$ and $\bar{q}_i$ ($i=1,2$) are column vector of length $n$ and $Z$ and $W$ are $n \times n$ matrices, the computation of $\bar{r}_1 = W\bar{p}_1$ thus need $O(n^2)$ operations, which is the same for $\bar{s}_1$, $\bar{s}_2$ and $\bar{r}_2$. So the overall cost to update $W$ is thus $O(n^2 + mn)$, which is far less than the cost of recomputing from the scratch, i.e. $O(n^3 + mn)$.
+where $\bar{r}_1 = J\bar{p}_1$, $\bar{r}_2 = (J+\Delta_{Z_1}(J))\bar{p}_2$ while $\bar{s}_1$ and $\bar{s}_2$ are the rest of the subexpressions of $\Delta_{Z_1}(J)$ and $\Delta_{Z_2}(J)$ respectively. So the overall updates to $J$ is $\Delta J = \bar{r}_1\bar{s}_1^T + \bar{r}_2\bar{s}_2^T$, which is a rank-2 update.
+Since $\bar{p}_i$ and $\bar{q}_i$ ($i=1,2$) are column vector of length $n$ and $Z$ and $J$ are $n \times n$ matrices, the computation of $\bar{r}_1 = W\bar{p}_1$ thus need $O(n^2)$ operations, which is the same for $\bar{s}_1$, $\bar{s}_2$ and $\bar{r}_2$. So the overall cost to update $W$ is thus $O(n^2 + mn)$, which is far less than the cost of recomputing from the scratch, i.e. $O(n^3 + mn)$.
 
-In terms of the update for $\beta^*$ (denoted by $\Delta \beta$), given the update to the input $X$, i.e. $\Delta X=\bar{u}\bar{v}^T$, $\Delta \beta$ can be thus written as:
+In terms of the update for $W^*$ (denoted by $\Delta W$), given the update to the input $X$, i.e. $\Delta X=\bar{u}\bar{v}^T$, $\Delta W$ can be thus written as:
 
 \begin{equation}
-    \Delta \beta = \Delta WX^TY + W\Delta X^TY + \Delta W\Delta X^TY = (\bar{r}_1\bar{s}_1^T + \bar{r}_2\bar{s}_2^T)X^TY + W\bar{v}\bar{u}^TY + (\bar{r}_1\bar{s}_1^T + \bar{r}_2\bar{s}_2^T)\bar{v}\bar{u}^TY
+    \Delta W = \Delta JX^TY + J\Delta X^TY + \Delta J\Delta X^TY = (\bar{r}_1\bar{s}_1^T + \bar{r}_2\bar{s}_2^T)X^TY + J\bar{v}\bar{u}^TY + (\bar{r}_1\bar{s}_1^T + \bar{r}_2\bar{s}_2^T)\bar{v}\bar{u}^TY
 \end{equation}
 
 while requires $O(n^2 + mp + np + mn)$ operations in total while re-evaluation incurs $O(mnp + n^2min(m,p))$ operations.

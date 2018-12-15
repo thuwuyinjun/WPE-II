@@ -1,4 +1,4 @@
-\section{Preliminaries}
+\section{Preliminaries}\label{sec: pre}
 We will use capitalized letters (e.g. $H$) to denote matrix, capitalized bold letters (e.g. $\textbf{T}$) to denote tables, lowercase letters (e.g. $x$ and $y$) to denote scalar value, bold lowercase letters (e.g. $\textbf{x}$) to denote variables or attributes in the table, letters with bar (e.g. $\bar{w}$) to denote a vector, $f(*)$ to denote functions ($*$ represents arguments of function $f$). Besides, we use $H_{i,j}$ to denote the value at cell $(i,j)$ in matrix $H$ and use $\bar{w}_i$ to denote $i_{th}$ element in vector $\bar{w}$. We introduce superscript $^{(t)}$ (e.g. $x^{(t)}$) to denote the value of certain variables at the time step $t$ during iterative computation. For a tuple $t$ in a table $\textbf{T}$, we use $t.attr$ to denote the value of attribute $attr$ in tuple $t$ where $attr$ is in the schema of $\textbf{T}$. Based on those notations, we provide notations for each model as follows.
 
 \paragraph{Regression model}
@@ -19,6 +19,13 @@ Given a set of data\eat{ observed from the underlying wireless sensors located a
 \begin{equation}\label{eq: regression_solve}
     H^TH\bar{w}^*=H^T\bar{y}
 \end{equation}
+
+thus $\bar{w}^*$ is computed as:
+\begin{equation}\label{eq: regression_solve_final}
+    \bar{w}^*=(H^TH)^{-1}H^T\bar{y}
+\end{equation}
+
+
 
 where $H$ is:
 \begin{equation}
@@ -51,6 +58,17 @@ x_{n1} & x_{n2} &\dots &x_{nk}\\
 \dots\\
 \bar{x}_n\\
 \end{bmatrix}
+\end{equation}
+
+If we represent $X = \begin{bmatrix}
+x_{11} & x_{12} &\dots &x_{1k}\\
+x_{21} & x_{22} &\dots &x_{2k}\\
+\dots\\
+x_{n1} & x_{n2} &\dots &x_{nk}\\
+\end{bmatrix}$, then Equation \ref{eq: regression_solve_final} can be rewritten as:
+
+\begin{equation}\label{eq: regression_solve_final}
+    \bar{w}^*=(X^TX)^{-1}X^T\bar{y}
 \end{equation}
 
 
