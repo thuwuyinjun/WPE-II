@@ -4,12 +4,12 @@ In data analytics, linear algebra programs are quite ubiquitous, which usually i
 \subsubsection{Model the iterative programs}\label{sec: iterative_model}
 Iterative computation is very common in linear algebra programs, for which naive re-evaluation from the scratch in the case of data updates can incur high overhead. Under the assumption that the iterative programs end after a fixed number of iteration steps (even after updates), Linview deals with delta expression propagation through the program under three different iterative models.
 
-\paragraph{Linear model} The first iterative model is {\em linear model}, which simply updates the result at $k_{th}$ epoch based on the results at $(k-1)_{th}$ epoch. Given the input $A$, the output at epoch $k$ is computed as:
+\paragraph{Linear model} The first iterative model is {\em linear model}, which simply updates the result at $k_{th}$ epoch based on the results at $(k-1)_{th}$ epoch. Given the input $A$, the output at epoch $k$, $T^{(k)}$ is computed as:
 
-\[T_k=
+\[T^{(k)}=
 \begin{cases}
 f(A)& k=1\\
-g(T_{k-1}, A) & k=2,3,\dots\\
+g(T^{(k-1)}, A) & k=2,3,\dots\\
 \end{cases}
 \]
 
@@ -18,21 +18,21 @@ where $f$ and $g$ represent the modified version of the original linear algebra 
 \paragraph{Exponential model} In the {\em exponential model}, the output at $k_{th}$ epoch depends on the result at $(k/2)_{th}$ epoch, which has larger leaps compared to {\em linear model}, i.e.:
 
 \[
-T_k=
+T^{(k)}=
 \begin{cases}
 f(A)& k=1\\
-g(T_{k/2}, A) & k=2,4,8\dots\\
+g(T^{(k/2)}, A) & k=2,4,8\dots\\
 \end{cases}
 \]
 
 \paragraph{Skip model} {\em Skip model} lies in between, in which the step between the computed iterations is adjustable. Given a skip size $s$, the result before $s_{th}$ epoch is computed by {\em exponential model} and then the result after $s_{th}$ epoch is computed every $s_{th}$ iteration. The {\em skip model} is thus represented as:
 
 \[
-T_k=
+T^{(k)}=
 \begin{cases}
 f(A)& k=1\\
-g(T_{k/2}, A) & k=2,4,8\dots,s\\
-h(T_{k-s}, T_{s}, A) & k=s, 2s,\dots
+g(T^{(k/2)}, A) & k=2,4,8\dots,s\\
+h(T^{(k-s)}, T^{(s)}, A) & k=s, 2s,\dots
 \end{cases}
 \]
 
@@ -241,67 +241,96 @@ In terms of the update for $W^*$ (denoted by $\Delta W$), given the update to th
 while requires $O(n^2 + mp + np + mn)$ operations in total while re-evaluation incurs $O(mnp + n^2min(m,p))$ operations.
 
 \paragraph{Matrix powers}
-The goal of matrix powers is to compute $A^k$ for an input matrix $A$ with a given exponent $k$, which plays an important role in many data analysis tasks. Matrix powers can be computed iteratively, for which the three iterative models proposed in \ref{sec: iterative_model} is applicable and the trade-offs between the three models can be explored under re-evaluation strategy or incremental update strategy.
+The goal of matrix powers is to compute $A^k$ for an input matrix $A$ with a given exponent $k$, which plays an important role in many data analysis tasks. Matrix powers can be computed iteratively, for which the three iterative models proposed in \ref{sec: iterative_model} are applicable and the trade-offs between the three models are explored under re-evaluation strategy or incremental update strategy are presented in Figure \ref{fig:time_space_complexity_matrix_power} under the assumption that $k \ll n$.
 
-The time and space complexity of matrix powers under different iterative models and different evaluation strategies (re-evaluation or incremental update) is presented in Figure \ref{fig:time_space_complexity_matrix_power}. Under the assumption that $k \ll n$ 
-
-\begin{figure}
+% \begin{figure}
+%     \centering
+%     \includegraphics[width=8cm, height=4.5cm]{Figures/time_space_complexity_matrix_powers.png}
+%     \caption{The time and space trade-offs for matrix power}
+%     \label{fig:time_space_complexity_matrix_power}
+% \end{figure}
+\begin{table}[h]
     \centering
-    \includegraphics[width=8cm, height=4.5cm]{Figures/time_space_complexity_matrix_powers.png}
-    \caption{The time and space trade-offs for matrix power}
-    \label{fig:time_space_complexity_matrix_power}
-\end{figure}
+    \begin{tabular}{|c|c|c|c|}\hline
+        &\multirow{2}{*}{Model} & \multicolumn{2}{|c|}{(Sum of) Matrix Powers}  \\\hhline{~~--}
+        &&Re-evaluation & Incremental\\ \hline
+    \multirow{3}{*}{Time}&Linear & $n^{\gamma}k$ & $n^2k^2$\\\hhline{~---}
+    &Exponential & $n^{\gamma}logk$ & $n^2k$\\\hhline{~---}
+    &Skip-s & $n^{\gamma}(logs+\frac{k}{s})$ & $n^2\frac{k^2}{s}$\\\hline
+    \multirow{3}{*}{Space}&Linear & $n^2$ & $n^2k$\\\hhline{~---}
+    &Exponential & $n^2$ & $n^2logk$\\\hhline{~---}
+    &Skip-s & $n^2$ & $n^2(logs+\frac{k}{s})$\\\hline
+    \end{tabular}
+    \caption{The time and space trade-offs for (sum of) matrix power}
+    \label{tab:time_space_complexity_matrix_power}
+\end{table}
 
-For re-evaluation strategy, it would require $O(n^{\gamma})$ operations for every iteration and thus the total time complexity depends on the number of iterations. Thus Exponential model outperform other models since it has largest leap between iterations. But all of the models have the same space complexity, i.e. $O(n^2)$.
+For re-evaluation strategy, it would require $O(n^{\gamma})$ operations for matrix multiplication at every iteration and thus the total time complexity depends on the number of iterations. Thus Exponential model outperforms other models since it has largest leap between iterations. But all of the models have the same space complexity, i.e. $O(n^2)$.
 
 For incremental update strategy, the computation time at each iteration should be $O(rn^2)$ where $r$ is the rank of the input delta expression on the updates at each iteration and the rank of delta expression increases linearly as the iteration proceed, which leads to the nearly quadratic running time and linear space consumption with respect to iteration number.
 
-Similar to {\em matrix power}, the sum of matrix power problem, which aims at computing $S_k = I + A + A^2 + \dots + A^k$ given input $A$ and maximum exponent $k$ where $I$ is the identity matrix, have the almost the same computation process and thus have the same time complexity as shown in Figure \ref{fig:time_space_complexity_matrix_power}. 
+Similar to {\em matrix power}, the sum of matrix power problem, which aims at computing $S^{(k)} = I + A + A^2 + \dots + A^k$ given input $A$ and maximum exponent $k$ where $I$ is the identity matrix, have the almost the same computation process and thus have the same time complexity as shown in Table \ref{tab:time_space_complexity_matrix_power}. 
 
-\paragraph{General form} The authors also consider a general iterative matrix computation programs based on matrix powers, i.e. $T_{i+1} = AT_{i} + B$ where $A$ is the input matrix with dimension $n \times n$, $B$ is a constant matrix with dimension $n \times p$ and the result of $T_{i}$ is iteratively computed with dimension $n \times p$. Such general form appears in many applications such as PageRank and power iteration method for eigenvalue computation. 
+\paragraph{General form} The authors also consider a general iterative matrix computation programs based on matrix powers, i.e. $T^{(i+1)} = AT^{(i)} + B$ where $A$ is the input matrix with dimension $n \times n$, $B$ is a constant matrix with dimension $n \times p$ and the result $T^{(i)}$ is iteratively computed which hhas dimension $n \times p$. Such general form appears in many applications such as PageRank and power iteration method for eigenvalue computation. 
 
-Note that $T_{i+1} = AT_{i} + B$ can be unrolled as the form for computing $T_{i+k}$, i.e. $T_{i+k} = A^kT_{i} + (A^{k-1} + A^{k-2} + \dots + A + I) B$, in which how to efficiently incrementally compute $P_k = A^k$ and $S_k = (A^{k-1} + A^{k-2} + \dots + A + I)$ has been discussed before and thus both $P_k$ and $S_k$ are materialized and maintained along with $T_k$. Given those notations, the derivation rules for $T_{i+1} = AT_{i} + B$ under the three iterative models from Section \ref{sec: iterative_model} are shown in Table \ref{tab:derivation_rule}.
+Note that $T^{(i+1)} = AT^{(i)} + B$ can be unrolled as the form for computing $T^{(i+k)}$ with the results at iteration $i$ and previous iterations, i.e. $T^{(i+k)} = A^kT^{(i)} + (A^{k-1} + A^{k-2} + \dots + A + I) B$, in which how to efficiently incrementally compute $P^{(k)} = A^k$ and $S^{(k)} = (A^{k-1} + A^{k-2} + \dots + A + I)$ has been discussed before and thus both $P^{(k)}$ and $S^{(k)}$ are materialized and maintained along with $T^{(k)}$. Given those notations, the derivation rules for $T^{(i+1)} = AT^{(i)} + B$ under the three iterative models from Section \ref{sec: iterative_model} are shown in Table \ref{tab:derivation_rule}.
 
 \begin{table}[]
     \centering
     \begin{tabular}{|c|c|}\hline
         Model & Derivation rule \\ \hline
-        Linear & $T_k=
+        Linear & $T^{(k)}=
 \begin{cases}
-AT_0 + B& k=1\\
-AT_{i-1} + B & k=2,3,4\dots,k
+AT^{(0)} + B& k=1\\
+AT^{(i-1)} + B & k=2,3,4\dots,k
 \end{cases}$\\ \hline
-        Exponential & $T_k=
+        Exponential & $T^{(k)}=
 \begin{cases}
-AT_0 + B& k=1\\
-P_{i/2}T_{i/2} + S_{i/2}B & k=2,4,8\dots,s\\
+AT^{(0)} + B& k=1\\
+P^{(i/2)}T^{(i/2)} + S^{(i/2)}B & k=2,4,8\dots,s\\
 \end{cases}$\\ \hline
-        Skip-s &$T_k=
+        Skip-s &$T^{(k)}=
 \begin{cases}
 AT_0 + B& k=1\\
-P_{i/2}T_{i/2} + S_{i/2}B & k=2,4,8\dots,s\\
-P_sT_{i-s} + S_sB & k = 2s, 3s, \dots, k
+P^{(i/2)}T^{(i/2)} + S^{(i/2)}B & k=2,4,8\dots,s\\
+P^{(s)}T^{(i-s)} + S^{(s)}B & k = 2s, 3s, \dots, k
 \end{cases}$\\ \hline
     \end{tabular}
-    \caption{Derivation rules for $T_{i+1} = AT_{i} + B$ under three iterative models}
+    \caption{Derivation rules for $T^{(i+1)} = AT^{(i)} + B$ under three iterative models}
     \label{tab:derivation_rule}
 \end{table}
 
 Then given an update $\Delta A$ against the input matrix $A$, the cost analysis under different iterative models and update strategies is provided below.
 
-In terms of re-evaluation strategy, the results of $T_i$, $P_i$ and $S_i$ are only materialized for current iteration. For linear model, computing $AT_i$ is the performance bottleneck, which requires $O(np)$ operations (the result has dimension $n \times p$) with $O(n)$ multiplications for each operation. So the total time complexity is $O(pn^2)$ for each iteration and thus $O(pn^2)$ for $k$ iterations. For exponential model and skip-s model, maintaining $P_i$ and $S_i$ would incur time complexity $O(n^{\gamma})$ for every iterations, which is essential for $logk$ and $logs$ iterations respectively. Besides the cost of maintaining the auxiliary matrices $P_i$ and $S_i$, it still needs $O(pn^2)$ time to compute $P_sT_{i-s}$ or $P_{i/2}T_{i/2}$ at each iteration. Since the number of iterations for exponential model and skip-s model is $logk$ and $logs + \frac{k}{s}$ respectively, the overall time complexity for the two models will be $O(n^{\gamma} + pn^2)logk$ and $O(n^{\gamma}logs + pn^2(logs+ \frac{k}{s}))$.
+In terms of re-evaluation strategy, the results of $T^{(i)}$, $P^{(i)}$ and $S^{(i)}$ are only materialized for current iteration. For linear model, computing $AT^{(i)}$ is the performance bottleneck, which requires $O(np)$ multiplications  (the result has dimension $n \times p$) and thus $O(pn^2)$ time in total at each operation. So the total time complexity is $O(kpn^2)$ for $k$ iterations. For exponential model and skip-s model, maintaining $P^{(i)}$ and $S^{(i)}$ would incur time complexity $O(n^{\gamma})$ for every iterations, which is essential for $logk$ and $logs$ iterations respectively. Besides the cost of maintaining the auxiliary matrices $P^{(i)}$ and $S^{(i)}$, it still needs $O(pn^2)$ time to compute $P^{(s)}T^{(i-s)}$ or $P^{(i/2)}T^{(i/2)}$ at each iteration. Since the number of iterations for exponential model and skip-s model is $logk$ and $logs + \frac{k}{s}$ respectively, the overall time complexity for the two models will be $O(n^{\gamma} + pn^2)logk$ and $O(n^{\gamma}logs + pn^2(logs+ \frac{k}{s}))$.
 
-For incremental strategy, the time complexity to maintain $P_s$ and $S_s$ is still $O(n^2)$ for each iteration as discussed before. To derive $T_k$, the update rule $P_{i/2}T_{i/2} + S_{i/2}B$ or $P_sT_{i-s} + S_sB$ is used, which requires extra $O(np)$ time to compute the factored form for $T_i$. So the overall time complexity for each iteration will be $O(n^2 + np)$. By following similar analysis for {\em matrix powers}, the time complexity and space complexity for the three different iterative models is presented in Figure \ref{fig:time_space_complexity_general_form}.
+For incremental strategy, the time complexity to incrementally update $P^{(s)}$ and $S^{(s)}$ is still $O(rn^2)$ for each iteration as discussed before where $r$ is the rank of the factored forms of $P^{(s)}$ and $S^{(s)}$. To derive $T^{(k)}$, the update rule $P^{(i/2)}T^{(i/2)} + S^{(i/2)}B$ or $P^{(s)}T^{(i-s)} + S^{(s)}B$ is used, which requires extra $O(np)$ time to compute the factored form for $T^{(i)}$. So the overall time complexity for each iteration will be $O(n^2 + np)$. By following similar analysis for {\em matrix powers}, the time complexity and space complexity for the three different iterative models is presented in Table \ref{tab:time_space_complexity_general_form}.
 
-But notice that for some extreme case, such as $p=1$, incremental update strategy has worse performance than re-evaluation strategy, which is due to the unnecessary factor form representations for $T_i$ (a vector in this case). To solve this problem, a combination of the re-evaluation strategy and incremental updates strategy is proposed, which simply represent delta expression for $T_i$ as a single matrix instead of two factored vectors and still represent the auxiliary matrix $P_i$ and $S_i$ in factored form. So for exponential model and skip-s model, they require $rn^2$ operations to update $P_i$ and $S_i$ for each iteration where $r$ is the rank of them, which incurs the same overhead as the incremental updates for matrix powers while the time complexity to compute $T_k$ is $O(pn^2)$ when $P_i$ and $S_i$ are given, which has the same time complexity as re-evaluation strategy. By summing up the time complexity from the two parts, the overall time complexity is presented in Figure \ref{fig:time_space_complexity_general_form}. Since both $P_i$ and $S_i$ for hybrid strategy are materialized in the same form as incremental update strategy for every iteration, it thus shares the same space complexity as incremental update strategy.
+But notice that for some extreme case, such as $p=1$, incremental update strategy has worse performance than re-evaluation strategy, which is due to the unnecessary factor form representations for $T^{(i)}$ (a vector in this case). To solve this problem, a combination of the re-evaluation strategy and incremental updates strategy is proposed, which simply represent delta expression for $T^{(i)}$ as a single matrix instead of two factored vectors and still represent the auxiliary matrix $P^{(i)}$ and $S^{(i)}$ in factored form. So for exponential model and skip-s model, they require $rn^2$ operations to update $P^{(i)}$ and $S^{(i)}$ for each iteration where $r$ is the rank of them, which incurs the same overhead as the incremental updates for matrix powers while the time complexity to compute $T^{(k)}$ is $O(pn^2)$ when $P^{(i)}$ and $S^{(i)}$ are given, which has the same time complexity as re-evaluation strategy. By summing up the time complexity from the two parts, the overall time complexity is presented in Table \ref{tab:time_space_complexity_general_form}. Since both $P^{(i)}$ and $S^{(i)}$ for hybrid strategy are materialized in the same form as incremental update strategy for every iteration, it thus shares the same space complexity as incremental update strategy.
 
 
-\begin{figure}
+% \begin{figure}
+%     \centering
+%     \includegraphics[width=12cm, height=4.5cm]{Figures/time_space_complexity_general_form.png}
+%     \caption{The time and space trade-offs for general forms}
+%     \label{fig:time_space_complexity_general_form}
+% \end{figure}
+
+\begin{table}[h]
     \centering
-    \includegraphics[width=12cm, height=4.5cm]{Figures/time_space_complexity_general_form.png}
+    \begin{tabular}{|c|c|c|c|c|}\hline
+        &\multicolumn{4}{|c|}{$T^{(i+1)} = AT^{(i)} + B$}  \\\hhline{~----}
+        &Model&Re-evaluation & Incremental&Hybrid\\ \hline
+    \multirow{3}{*}{Time}&Linear & $pn^2k$ & $(n^2+pn)k^2$&$pn^2k$\\\hhline{~----}
+    &Exponential & $(n^{\gamma}+pn^2)logk$ & $(n^2+pn)k$&$pn^2logk+n^2k$\\\hhline{~----}
+    &Skip-s & $n^{\gamma}logs+pn^2(logs +  \frac{k}{s})$ & $(n^2+pn)\frac{k^2}{s}$&$pn^2(logs + \frac{k}{s}) + n^2s$\\\hline
+    \multirow{3}{*}{Space}&Linear & $n^2 + np$ & $n^2+knp$&$n^2 + knp$\\\hhline{~----}
+    &Exponential & $n^2 + np$ & $(n^2 + np)logk$& $(n^2 + np)logk$\\\hhline{~----}
+    &Skip-s & $n^2 + np$ & $(n^2+np)logs+np\frac{k}{s})$&$(n^2+np)logs+np\frac{k}{s})$\\\hline
+    \end{tabular}
     \caption{The time and space trade-offs for general forms}
-    \label{fig:time_space_complexity_general_form}
-\end{figure}
+    \label{tab:time_space_complexity_general_form}
+\end{table}
 
 
 \subsection{Discussions}
