@@ -1,18 +1,2 @@
-\section{Related work}
-
-\paragraph{Incremental view maintenance and Query rewriting using views} Incrementally maintain materialized views is a well-studied topic in database domain. For example, in relational database domain, \cite{gupta1993maintaining} is for non-recursive views (possibly with negation and aggregation) when insertion or deletion happens in the underlying base relations, \cite{dong2000incremental} for recursive views and \cite{green2007update} for deletion propagation to the view instances by applying provenance semiring \cite{green2007provenance} in the context of update exchanges. There are also some contributions for semistructed database or graph database, e.g. \cite{liefke2000view} and \cite{abiteboul1998incremental}. 
-
-Query rewriting using views problem is a well-known research problem in database community \cite{halevy2001answering}. Some works have been focusing on optimizing the query response time with materialized views in the case of conjunctive queries \cite{chandra1977optimal, chaudhuri1995optimizing, pottinger2000scalable, afrati2007using}, aggregate queries \cite{cohen2007deciding, cohen1999rewriting, srivastava1996answering, galindo2001orthogonal}, nested queries \cite{zaharioudakis2000answering}.
-
-However, those works only focus on propagating updating through the traditional database operations, i.e. the relation-algebra-based operations, which only compose of a small portion of the operations used in current data analysis tasks. 
-
-\paragraph{Data Provenance} Data provenance identifies where a piece of data came from and the process by which it arrived in the database \cite{buneman2001and}.  It has been used to track the dependencies between inputs and outputs, detect errors in complex workloads, and provide explanations for debugging purposes. Various formulations of provenance have been studied, such as \textit{why- and where-provenance} \cite{buneman2001and}, \textit{why-not-provenance} \cite{chapman2009not}, and the \textit{provenance semirings} framework %(how-provenance) 
-for conjunctive queries \cite{green2007provenance}, aggregate queries \cite{amsterdamer2011provenance} and queries with negation \cite{xu2018provenance}.  This framework has been used to implement several practical provenance-enabled database systems, such as ORCHESTRA \cite{ives2008orchestra} and GProM \cite{arab2018gprom}. 
-% The connection between data citation and provenance was discussed in \cite{BunemanEtAl2016} and explored but not formalized in \cite{alawini2018data}. This paper develops those ideas further, provides an implementation based on a provenance-enabled database system, and shows the feasibility of the approach.
-
-\paragraph{Online learning}
-
-\paragraph{Interpretable machine learning} In machine learning community, one of the biggest concern is to interpret the behaviors of the machine learning models in training phase and prediction phase. Due to the complexity of typical machine learning models, such as deep neural network, convolutional neural network, etc, they are usually regarded as a ``black box'', which limited their use in many 
-
-
-% Recall that
+\section{Conclusion}
+Data analysis has become more and more important and ubiquitous nowadays, which usually involves processing large collections of data. How to save computation time is a big concern for stakeholders. In the article, some papers on adapting the ideas of incremental view maintenance and view reuse from traditional database domains for emerging data analysis tasks are summarized and compared, which are dedicated to more efficient computation in data analysis tasks. Some future research opportunities are also discussed.
