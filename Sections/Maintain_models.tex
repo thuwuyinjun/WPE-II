@@ -4,13 +4,13 @@ In this section, some recent works on incrementally maintaining views in the dat
 
 % develop a system (MauveDB vs Hazy) to store typical statistical model parameters as database view in RDBMS and update the views incrementally when raw data are modified.   
 
-\subsection{Incrementally maintain model parameters}
+\subsection{Incrementally maintain model parameters}\label{sec: maintain_model_para}
 %brief description to MauveDB
-In this subsection, \cite{deshpande2006mauvedb} and parts of \cite{gupta2015processing} are presented, which aim at regarding the machine learning model parameters as database views and handling the changes over those models incrementally. In \cite{deshpande2006mauvedb}, the authors developed a system called MauveDB, which primarily deals with wireless sensor network applications, where data are collected through underlying sensors, trained with typical machine learning models such as regression-based model and interpolation-based model and used for estimating missing or future results. 
+In this subsection, \cite{deshpande2006mauvedb} and parts of \cite{gupta2015processing} are presented, which regard the machine learning model parameters as database views and handle the changes over those models incrementally. In \cite{deshpande2006mauvedb}, the authors developed a system called MauveDB, which primarily deals with wireless sensor network applications, where data are collected through underlying sensors, trained with typical machine learning models such as regression-based model and interpolation-based model and used for estimating missing or future results. 
 % The statistic models learned with those raw data are materialized as {\em model-based views}.
 % , which are created with a high-level SQL-like language. 
 The raw data from the underlying sensors are changing constantly, which requires efficient view maintenance strategies. 
-Compared to \cite{deshpande2006mauvedb}, parts of \cite{gupta2015processing} also deals with the same problem but richer types of machine learning models, which, ultimately, goes towards the reuse of models in analytical workloads. In general, there are multiple ways to maintain the model parameters once the model is constructed, e.g. always computed from the scratch. Different model maintenance strategies introduced in \cite{deshpande2006mauvedb} and the details on incremental maintenance of model parameters for different models are provided as follows.
+Compared to \cite{deshpande2006mauvedb}, parts of \cite{gupta2015processing} also deals with the same problem but richer types of machine learning models, which, ultimately, goes towards the reuse of models in analytical workloads. In general, there are multiple ways to maintain the model parameters once the model is constructed, e.g. always computed from the scratch. Different model maintenance strategies introduced in \cite{deshpande2006mauvedb} and the details on incremental maintenance of model parameters for each machine learning algorithms are provided as follows.
 % which highly depend on the types of statistical model.
 
 
@@ -33,56 +33,55 @@ In Figure \ref{fig:MauveDB_view_def}, examples of regression-based view and Inte
 %High-level descriptions of view maintenance strategies
 When new data are available, the updates should be reflected on the model-based views. Four different strategies are developed in MauveDB for this purpose and their trade-offs are discussed with extensive experiments. The details of the four view maintenance strategies are introduced in this section.
 
-\textit{Strategy 1: Materialize the views (eager approach)}
+\textit{Strategy 1: Materialize the views}
 A naive way is simply to construct the models and materialize the model parameters as views in the database, which can avoid unnecessary query execution time when users want to retrieve the ``exact'' model information. However, such views may incur high space overhead and pose a challenge in refreshing the model as new data comes.
 
 \textit{Strategy 2: Always use the base data }
 This strategy goes to another extreme without materialization at all in the database, which can obviously make query processing very expensive since recomputating the view content is necessary every time when queries are evaluated. 
 
-\textit{Strategy 3: Partial materialization (lazy approach)}
+\textit{Strategy 3: Partial materialization}
 Somewhere in-between is to partially materialize the view content, which simply caches parts of the views that have been computed by certain queries. When the views are about to be refreshed, the corresponding cached contents in memory will be invalidated.
 
 \textit{Strategy 4: Materialize an intermediate representation}
-Some intermediate representations are materialized in this strategy by leveraging some nice properties of machine learning model, which have been an efficient solution experimentally and are presented below for each model respectively.
+Some intermediate representations are materialized in this strategy by leveraging some nice properties of the machine learning models, which have been an efficient solution experimentally and are presented below for each model respectively.
 
 The specific choice of strategies in practice depends on various factors, such as the query workload, data statistics and types of models. The trade-off between the four strategies are experimentally explored with extensive experiments in \cite{deshpande2006mauvedb}, which shows that the strategy 4 performs best in most scenarios while strategy 1 can actually outperform others in some cases.
 
 \subsubsection{View maintenance for each model}\label{sec: view_maintenance_model}
-\paragraph{view maintenance for regression model} \cite{deshpande2006mauvedb} and \cite{gupta2015processing} apply strategy 4 over the regression model in the same way. Recall that the optimal coefficients can be solved with Equation \ref{eq: regression_solve}. The intermediate representation for it can be simply the materialization of matrix $H^TH$ and $H^T\bar{y}$, which can be beneficial in various aspects. First, the dimensions of the two matrices only rely on the total number of features, which thus won't lead to large space overhead. Besides, efficient updates to the two matrices are achievable since they are computed with linear operators, i.e. matrix multiplications and additions. A newly generated data point $(\bar{x}',y')$ can trigger the update of $H^TH$ and $H^T\bar{y}$ as follows:
+\paragraph{view maintenance for regression model} \cite{deshpande2006mauvedb} and \cite{gupta2015processing} apply strategy 4 over the regression model in the same way. Recall that the optimal coefficients can be solved with Equation \ref{eq: regression_solve}. The intermediate representation for it can be simply the materialization of matrix $H^TH$ and $H^T\bar{y}$, which can be beneficial in various aspects. First, the dimensions of the two matrices only rely on the total number of features, which thus won't lead to large space overhead. Besides, efficient updates to the two matrices are achievable since they are computed with linear operators, i.e. matrix multiplications and additions. A newly generated data point $(\bar{x}',\bar{y}')$ can trigger the update of $H^TH$ and $H^TY$ as follows:
 \begin{equation}
     (H^TH)^{new}_{i,j} = (H^TH)^{old}_{i,j} + h_i(\bar{x}')*h_j(\bar{x}')
 \end{equation}
 \begin{equation}
-    (H^T\bar{y})^{new}_i = (H^T\bar{y})^{old}_i + h_i(\bar{x}')*y'
+    (H^TY)^{new}_i = (H^TY)^{old}_i + h_i(\bar{x}')*\bar{y}'^T
 \end{equation}
 
-Once the user queries arrive, the coefficient $\bar{w}$ is computed with the following expression:
-\begin{equation}
-    \bar{w}^*=(H^TH)^{-1}H^T\bar{y}
-\end{equation}
+Where $(H^TY)^{x}_i$ ($x \in \{old, new\}$) represents the $i_{th}$ column of $(H^TY)^{x}_i$. Once $H^TH$ and $H^TY$ are updated, the coefficient $W$ is computed with Equation \ref{eq: regression_solve_final}, 
+% \begin{equation}
+%     \bar{w}^*=(H^TH)^{-1}H^T\bar{y}
+% \end{equation}
+which can be computed with time complexity $Q(k^3)$ where $k$ is the total number of basis functions. As mentioned before, in the simplest case when $H=X$, i.e. $H_i(*)$s are all identity functions and the number of basis functions is the same as the number of features, then $k$ also represents the number of features.
 
-which can be computed with time complexity $Q(k^3)$ where $k$ is the total number of features.
-
-\paragraph{View maintenance for interpolation model} \cite{deshpande2006mauvedb} also processes interpolation model, in which the data in the interpolation-based view $\textbf{V}$ will be of the form $(\textbf{t}, \textbf{v})$ where $\textbf{t}$ represents time while $\textbf{v}$ represents observed value by the sensors. Unlike regression mode, its intermediate representations are not additional data but some additional data structure for searching the values of variable $\textbf{t}$. In order to efficiently estimate the sensor values for time $t'$ which is missing from the view instance but queried by users, the closest values $t_{-}$ and $t_{+}$ (along with the corresponding sensor values $v_{-}$ and $v_{+}$) to $t'$ are retrieved with the auxillary data structure such that $t'$ lies in the interval $(t_{-}, t_{+})$ with no other $\textbf{t}$ value from $\textbf{V}$ in it. So the estimated sensor value at time $t'$ can be computed using Equation \ref{eq: interpolation}.
+\paragraph{View maintenance for interpolation model} \cite{deshpande2006mauvedb} also processes interpolation model by applying strategy 4, in which the data in the interpolation-based view $\textbf{V}$ will be of the form $(\textbf{t}, \textbf{v})$ where $\textbf{t}$ and $\textbf{v}$ represent predictor variable and response variable respectively. Unlike regression mode where the intermediate representations are the intermediate computation results, the intermediate representations of interpolation model are some auxiliary data structure for searching the values of variable $\textbf{t}$. In order to efficiently estimate the value of $\textbf{v}$ given the value of $\textbf{t}$, $t'$, which is missing from the view instance but queried by users, the closest $\textbf{t}$ values $t_{-}$ and $t_{+}$ (along with the corresponding $\textbf{v}$ values $v_{-}$ and $v_{+}$) to $t'$ are retrieved with the auxillary data structure such that $t'$ lies in the interval $(t_{-}, t_{+})$ without any other $\textbf{t}$ value from $\textbf{V}$ inside the interval. So the estimated $\textbf{v}$ value for $t'$ can be computed using Equation \ref{eq: interpolation}.
 
 
 \paragraph{View maintenance for Naive Bayes model}
-As mentioned before, \cite{gupta2015processing} deals richer types of machine learning models such Naive Bayes model and logistic regression model, which still follows the ideas of strategy 4 to maintain the model-based views. In terms of Naive Bayes model, based on Equation \ref{eq: nb_exp} and Equation \ref{eq: nb_guassian}, the membership probability depends on the values of $N_c$, $\mu_{jc}$ and $\sigma_{jc}^2$, in which $\mu_{jc}$ and $\sigma_{jc}^2$ require the sum and square of sum of the feature values within the class $c$ (denoted as $S_{jc}$ and $SS_{jc}$ respectively). So $N_c$, $S_{jc}$ and $SS_{jc}$ are materialized. When a new data point $\bar{x}, y$ comes where $\bar{x} = \{x_1, x_2, \dots, x_d\}$, $N_c$, $S_{jc}$ and $SS_{jc}$ is updated as:
+As mentioned before, \cite{gupta2015processing} deals richer types of machine learning models such as Naive Bayes model and logistic regression model, which still follows the ideas of strategy 4 to maintain the model-based views. In terms of Naive Bayes model, based on Equation \ref{eq: nb_exp} and Equation \ref{eq: nb_guassian}, the membership probability depends on the values of $N_c$, $\mu_{jc}$ and $\sigma_{jc}^2$, in which $\mu_{jc}$ and $\sigma_{jc}^2$ require the sum and square of sum of the feature values within the class $c$, i.e. $\Sigma_{i=1}^n(x_{ij}I(y_i=c))^2$ and $\Sigma_{i=1}^nx_{ij}I(y_i=c)$ (denoted as $S_{jc}$ and $SS_{jc}$ respectively) from Equation \ref{eq: nb_mean} and \ref{eq: nb_var}, which are thus materialized. When a new data point $\bar{x}, y$ comes where $\bar{x}^T = [x_1, x_2, \dots, x_d]$, $N_c$, $S_{jc}$ and $SS_{jc}$ is updated as:
 
 \begin{equation}
     \begin{split}
-        N_c' &= N_c + [y=c]\\
-        S_{jc}' &= S_{jc} + x_j[y=c]\\
-        SS_{jc}'&= SS_{jc} + x_j^2[y=c]
+        N_c' &= N_c + I(y=c)\\
+        S_{jc}' &= S_{jc} + x_jI(y=c)\\
+        SS_{jc}'&= SS_{jc} + x_j^2I(y=c)\\ &= SS_{jc} + (x_jI(y=c))^2
     \end{split}
 \end{equation}
 
 \paragraph{View maintenance for logistic regression model}
-Unlike the machine learning models discussed above, there is no closed-form solution for logistic regression model, which requires gradient descent algorithm with non-linear operator (i.e. logistic function) involved to derive the model parameters. 
+Unlike the machine learning models discussed above, there is no closed-form solution for logistic regression model, which requires gradient descent algorithm with non-linear operator (i.e. logistic function) involved to derive the model parameter $\bar{w}$ in Equation \ref{eq: logistic_regression_prob}. 
 
-As the first step toward incrementally maintain the logistic regression model, a variant of statistical gradient descent, i.e. Mixture Weight Methods \cite{mcdonald2009efficient} is used, which is sketched in Algorithm \ref{alg: mixture weight method}. Intuitively, this algorithm splits the entire dataset into $p$ partitions in the beginning, for each of which the gradient descent algorithm is applied. In the end, the model parameters computed from every partition are averaged as the final output. Then given the training data points $D_q$ on which Algorithm \ref{alg: mixture weight method} is applied, the model parameter derived from each partition is materialized, which forms a parameter array $\bar{P}$. 
+As the first step toward incrementally maintain the logistic regression model, a variant of statistical gradient descent, i.e. Mixture Weight Methods \cite{mcdonald2009efficient} is used, which is sketched in Algorithm \ref{alg: mixture weight method}. Intuitively, this algorithm splits the entire dataset into $p$ partitions in the beginning and the size of each partition is $l$. For $i_{th}$ partition, the gradient descent algorithm is applied to derive the model parameter (denoted by $\bar{w}_i$). In the end, the model parameters computed from every partition are averaged as the final output. Then given the training data points $\{\bar{x}_i, y_i\}_{i=1}^n$ on which Algorithm \ref{alg: mixture weight method} is applied, the model parameter derived from each partition is materialized, which forms a parameter set $P = \{\bar{w}_1, \bar{w}_2, \dots, \bar{w}_p\}$. 
 
-To incrementally update the model parameter, the new data points due to the updates are also split into partitions of size $l$ and the model parameter for each partition is derived by applying SGD as Algorithm \ref{alg: mixture weight method} proceeds, which is also added into $\bar{P}$. In the end, the updated model parameter $\bar{w}_{SGD}$ is computed by averaging the parameters from $\bar{P}$. According to \cite{mcdonald2009efficient}, the gap between $\bar{w}_{SGD}$ and the model parameter computed over the updated training data set from the scratch is bounded.
+To incrementally update the model parameter, the new data points due to the updates are also split into partitions of size $l$ and the model parameter for each partition is derived by applying SGD as Algorithm \ref{alg: mixture weight method} proceeds, which is also added into $P$. In the end, the updated model parameter $\bar{w}^{new}$ is computed by averaging the parameters from the updated $P$. According to \cite{mcdonald2009efficient}, the gap between $\bar{w}^{new}$ and the model parameter computed over the updated training data set from the scratch is bounded.
 
 
 \begin{algorithm}[h!] 
@@ -92,6 +91,7 @@ To incrementally update the model parameter, the new data points due to the upda
 %  \Input{a set of valid view mappings $\mathcal{M}$ for query tuple $t \in Q(D)$, query $Q$}
 
 %  \Output{a set of covering sets $C$}
+ Partition $\{\bar{x}_i, y_i\}$ into $p$ partitions, $\{S_1, S_2,\dots, S_p\}$, each of which is of size $l$.
  
  \For{all $i \in \{1,2,\dots, p\}$}
  {
@@ -99,13 +99,14 @@ To incrementally update the model parameter, the new data points due to the upda
     
     \For{$t \leftarrow 1$ to T}
     {
-        \Delta F_{S_i}(\bar{w}) \leftarrow GRADIENT(F_{s_i}(\bar{w}))
+        \tcp{ $F_{S_i}(\bar{w}) = \frac{1}{|S_i|}\Sigma_{(\bar{x}_i, y_i) \in S_i}L(\bar{w};\bar{x}_i, y_i) + \lambda R(\bar{w})$, which is adapted from Equation \ref{eq: logistic_objective_function}}
+        $\triangledown F_{S_i}(\bar{w}) \leftarrow GRADIENT(F_{S_i}(\bar{w}))$
     
         $\bar{w}_i \leftarrow \bar{w}_i + \lambda(\triangledown F_{S_i}(\bar{w}))$
     }
-    
-    Aggregate all $\bar{w}_{\mu} = \Sigma_{k=1}^p\mu_k\bar{w}_k$    
  }
+ 
+ Aggregate all $\bar{w}_{\mu} = \Sigma_{k=1}^p\mu_k\bar{w}_k$    
  
  \caption{Mixture weight method}
  \label{alg: mixture weight method}
@@ -114,8 +115,8 @@ To incrementally update the model parameter, the new data points due to the upda
 
 
 
-\subsection{Incrementally maintain classification result}
-Hazy \cite{koc2011incrementally} is a system, aiming at incrementally maintaining classification results such that the performance of the read and update operations over the classification results is optimized, which mainly supports linear classifiers, including support vector machines, ridge regression and logistic regressions.
+\subsection{Incrementally maintain classification result}\label{sec: maintain_classification}
+Hazy \cite{koc2011incrementally} is a system, aiming at incrementally maintaining classification results such that the performance of the read and update operations over the classification results are optimized, which mainly supports typical linear machine learning algorithms, including support vector machines, ridge regression and logistic regressions.
 
 \subsubsection{Views in Hazy}
 
@@ -128,7 +129,7 @@ Hazy \cite{koc2011incrementally} is a system, aiming at incrementally maintainin
 \end{figure}}
 
 %intro to view definition
-In Hazy, the goal is to classify a set of entities with some classifiers, each of which has the form $(id, \bar{f})$, where the $id$ is the entity id while $\bar{f}$ is the feature values for this entity. \eat{users can declare views in the way shown in Figure \ref{fig:Hazy_view_def}, in which a {\em classification view} is defined over some entity table (i.e. $Papers$ in Figure \ref{fig:Hazy_view_def}, with Primary key $id$) to identify their type (i.e. $Paper\_area$) with a model trained using some training examples (i.e. $Examples\_papers$) that are derived from original entity table by applying some feature function (i.e. $tf\_bag\_of\_words$ function). So in the end, }The classification result compose the view content, in which each tuple has the form $(id, class)$ where $id$ is the entity id while $class$ is the label for that entity determined by the model. There are two strategies to store the view content, i.e. {\em eager strategy} and {\em lazy strategy}. The major difference between the two strategies is that the former one stores the materialized views in the database while the latter one only keeps views virtual.
+In Hazy, the goal is to classify a set of entities with some classifiers. Each entity has the form $(id, \bar{f})$, where the $id$ is the entity id while $\bar{f}$ is the feature values for this entity. \eat{users can declare views in the way shown in Figure \ref{fig:Hazy_view_def}, in which a {\em classification view} is defined over some entity table (i.e. $Papers$ in Figure \ref{fig:Hazy_view_def}, with Primary key $id$) to identify their type (i.e. $Paper\_area$) with a model trained using some training examples (i.e. $Examples\_papers$) that are derived from original entity table by applying some feature function (i.e. $tf\_bag\_of\_words$ function). So in the end, }The view content is composed of the classification results for each entity, in which each tuple has the form $(id, class)$ where $class$ is the label determined by the machine learning model for the entity with identifier $id$. There are two strategies to store the view content, i.e. {\em eager strategy} and {\em lazy strategy}. The major difference between the two strategies is that the former one stores the materialized views in the database while the latter one only keeps views virtual.
 
 %operations in Hazy and the bottleneck for eager and lazy approach
 Hazy focus on three typical {\em queries} issued by the users: 1) {\em Single entity} read, i.e. retrieve the label of a single entity; 2) {\em All members} read, i.e. retrieve the labels for all the entities; 3) {\em Update}, i.e. update the views once the model is updated due to the incoming new training examples. Intuitively, the {\em update} should become the bottleneck for eager approach since the materialized views should be refreshed whenever updates happen while the {\em All members} read should be the major overhead for lazy approach since the content of the virtual views should be computed whenever read queries are issued, which are the major concerns for the authors of Hazy. In terms of {\em update} queries, the authors assume that the time to retrain the model is negligible (roughly on the order of 100$\mu$s on their datasets) and the major overhead for view maintenance is to relabel the entities in the materialized views for eager approach. 
@@ -138,16 +139,16 @@ Hazy focus on three typical {\em queries} issued by the users: 1) {\em Single en
 In what follows, the details on how to maintain materialized classification views in Hazy are provided, which targets at more efficient {\em update} queries for eager approach rather than recomputing the content of views from the scratch when updates happen. Lazy approach is free from this issue since updates won't influence the virtual views in the database. 
 
 %introduce notation for table H
-Suppose support vector machine is used thereafter (more complicated classifiers are introduce later) for binary classifications, at epoch $i$, the model parameters will be $(\bar{w^{(i)}}, b^{(i)})$. Given an entity with feature vector $\bar{f}$, its label is determined by the sign of the residual $eps = \bar{w^{(i)}}\cdot\bar{f}-b^{(i)}$. If $eps > 0$ ($eps < 0$ respectively), then this entity is labeled as $+$ ($-$ respectively).
+Every time when updating the views is defined as an {\em epoch}. Suppose support vector machine is used thereafter (other classifiers are also applicable and introduced later) for binary classifications (extensions for multiple classifications are introduced later), at epoch $i$, the model parameters will be $(\bar{w^{(i)}}, b^{(i)})$. Given an entity with feature vector $\bar{f}$, its label is determined by the sign of the residual $eps = \bar{w^{(i)}}\cdot\bar{f}-b^{(i)}$. If $eps > 0$ ($eps < 0$ respectively), then this entity is labeled as $+$ ($-$ respectively).
 
-Every time when updating the views is defined as an {\em epoch}. Recall the assumption that the time to retrain the model is not significant, the model is firstly retrained at each epoch. Given the updated model parameters, a scratch table $\textbf{H}$ is maintained inside Hazy, which stores tuples of the form $(id, \bar{f}, eps)$ where $id$, $\bar{f}$ and $eps$ represents the entity id, feature vector and residual (computed by $eps = \bar{w^{(i)}}*\bar{f}-b^{(i)}$). Then the classification view $\textbf{V}$ can be obtained from $\textbf{H}$, in which each view tuple has the form $(id, c, eps)$ ($c$ is the label for entity with identifier $id$ and is calculated as $c=sign(eps)$). 
+Recall the assumption that the time to retrain the model is not significant, the model is firstly retrained at each epoch. Given the updated model parameters, a scratch table $\textbf{H}$ is maintained inside Hazy, which stores tuples of the form $(id, \bar{f}, eps)$ where $id$, $\bar{f}$ and $eps$ represents the entity id, feature vector and residual (computed by $eps = \bar{w^{(i)}}*\bar{f}-b^{(i)}$). Then the classification view $\textbf{V}$ can be obtained from $\textbf{H}$, in which each view tuple has the form $(id, c, eps)$ ($c$ is the label for entity with identifier $id$ and is calculated as $c=sign(eps)$). 
 %For a tuple $t \in \textbf{H}$ ($\in \textbf{V}$ resp.), we use $t.attr$ denote the value of attribute $attr$ at tuple $t$ where $attr$ is an attribute of $\textbf{H}$ ($\textbf{V}$ respectively). For example, $t.\bar{f}$ and $t.id$ represent the feature vector and the entity at tuple $t$ in $\textbf{H}$.
 
 %introduce two steps
-\paragraph{Incremental step VS reorganization step} At epoch $i$, the scratch table $\textbf{H}$ is represented as $\textbf{H}^{(s)}$ which indicates that $\textbf{H}$ is constructed at epoch $s$ ($s < i$) and keeps the same after epoch $s$ until epoch $i$, view $\textbf{V}^{(i+1)}$ can be either {\em incrementally} constructed from $\textbf{V}^{(i)}$ by updating small portion of view tuples in $\textbf{V}^{(i)}$ without changing $\textbf{H}^{(s)}$ or computed by referencing latest $\textbf{H}$ which is {\em reorganized} at epoch $i$ (i.e. $\textbf{H}$ becomes $\textbf{H}^{(i)}$). Intuitively, the {\em incremental} step is relatively cheaper since it only touches parts of the view content and does not modify $\textbf{H}$. However, compared to the model constructed at epoch $s$, which is the latest {\em reorganization step}, more and more tuples in $\textbf{V}$ need to be updated since current model may be far away from the model at epoch $s$ as the time goes by. So the {\em reorganization step} is needed at some point to reduce the overhead in the following {\em incremental steps}.
+\paragraph{Incremental step VS reorganization step} At epoch $i$, the scratch table $\textbf{H}$ is represented as $\textbf{H}^{(s)}$ which indicates that $\textbf{H}$ is constructed at epoch $s$ ($s < i$) and keeps the same after epoch $s$ until epoch $i$, view $\textbf{V}^{(i+1)}$ can be either {\em incrementally} constructed from $\textbf{V}^{(i)}$ by updating small portion of view tuples in $\textbf{V}^{(i)}$ without changing $\textbf{H}^{(s)}$ or computed by referencing latest $\textbf{H}$ which is {\em reorganized} at epoch $i$ (i.e. $\textbf{H}$ becomes $\textbf{H}^{(i)}$). Intuitively, the {\em incremental} step is relatively cheaper since it only touches parts of the view content and does not modify $\textbf{H}$. However, compared to the model constructed at epoch $s$, which is the latest {\em reorganization step}, more and more tuples in $\textbf{V}$ need to be updated since current model may be far away from the model at epoch $s$ as the time goes by. So the {\em reorganization step} is needed at some point to reduce the overhead to update the labels in $\textbf{V}$ in the following {\em incremental steps}.
 
 %cost of the two options
-\paragraph{Cost measure and skiing strategy} Due to the existence of two alternative choices at each epoch, i.e. {\em incremental step} and {\em reorganization step}, we should determine whether {\em incremental step} or {\em reorganization step} is taken at each epoch such that the overall overhead is minimized. A sequence of the choice of {\em reorganization step} or {\em incremental step} at each epoch is defined as a {\em strategy}. In order to determine the optimal strategy, Hazy quantifies the cost for the {\em incremental step} and {\em reorganization step} and formalizes it as the classic {\em ski rental problem}. In this problem, the cost of the {\em incremental step} is defined as the time to update $\textbf{V}^{(i)}$ to $\textbf{V}^{(i+1)}$, which should be proportional to the view tuples relabeled at epoch $i$ (denoted as $c^{(i)}$) while the {\em reorganization step} has a fixed cost $S$. Suppose the {\em reorganization step} is taken at epoch $s$, then the accumulated cost at epoch $i$ by applying {\em incremental step} since epoch $s$ is $a^{(i)} = \sum_{j=s+1}^ic^{(j)}$. The strategy ({\em skiing strategy}) is as follows: If the accumulated cost $a^{(i)}$ is too large, say, greater than $\alpha S$ ($\alpha$ is a constant), then refresh table $H$ (the accumulated cost $a^{(i)}$ is reset to 0 after that). This strategy is proven to be 2-approximation asymptotically compared to the optimal strategy.
+\paragraph{Cost measure and skiing strategy} Due to the existence of two alternative choices at each epoch, i.e. {\em incremental step} and {\em reorganization step}, we should determine whether {\em incremental step} or {\em reorganization step} is taken at each epoch such that the overall overhead is minimized. A sequence of the choice of {\em reorganization step} or {\em incremental step} at each epoch is defined as a {\em strategy}. In order to determine the optimal strategy, Hazy quantifies the cost for the {\em incremental step} and {\em reorganization step} and formalizes it as the classic {\em ski rental problem} \cite{karlin1994competitive}. In this problem, the cost of the {\em incremental step} is defined as the time to update $\textbf{V}^{(i)}$ to $\textbf{V}^{(i+1)}$, which should be proportional to the view tuples relabeled at epoch $i$ (denoted as $c^{(i)}$) while the {\em reorganization step} has a fixed cost $S$. Suppose the {\em reorganization step} is taken at epoch $s$, then the accumulated cost at epoch $i$ by applying {\em incremental step} since epoch $s$ is $a^{(i)} = \sum_{j=s+1}^ic^{(j)}$. The strategy ({\em skiing strategy}) is as follows: If the accumulated cost $a^{(i)}$ is too large, say, greater than $\alpha S$ ($\alpha$ is a constant), then refresh table $H$ (the accumulated cost $a^{(i)}$ is reset to 0 after that). This strategy is proven to be 2-approximation asymptotically compared to the optimal strategy.
 
 
 \subsubsection{Details of incremental step}\label{Sec: incremental step}
@@ -156,7 +157,7 @@ The core idea of {\em incremental step} is to do small changes over the classifi
 
 \paragraph{Thresholds in incremental step}
 %intro to lower water and higher water
-For incremental step, it is assumed that the appearance of the new training examples do not result in great changes to the model, which means that it is safe to simply update small portion of the view content to achieve performance gains at each epoch. Intuitively, the entities that are far away from the decision boundary should be less likely to be changed when the updates happen while the ones closer to the decision boundary are more likely to flip the labels. So Hazy introduces two thresholds, lower water and higher water (denoted by $lw$ and $hw$ respectively, which are negative and positive respectively) to determine which view tuples should be changed or not. At each epoch $i$, by referencing the residual value $eps$ for each entity in the scratch table $\textbf{H}^{(s)}$ computed at epoch $s$ ($s<i$), if $eps$ is greater than $hw$ (less than $lw$), then the labels of the corresponding entities are guaranteed to be $+$ ($-$ respectively) and thus remain unchanged. Otherwise, we use the updated model at epoch $i$ to reclassify those entities. 
+For incremental step, it is assumed that the appearance of the new training examples do not result in great changes to the model, which means that it is safe to simply update small portion of the view content to achieve performance gains at each epoch. Intuitively, the labels of the entities that are far away from (close to resp.) the decision boundary should be less likely (more likely resp.) to be flipped when the updates happen. So Hazy introduces two thresholds, lower water and higher water (denoted by $lw$ and $hw$ respectively, which are negative and positive respectively) to determine which view tuples should be changed or not. At each epoch $i$, by referencing the residual value $eps$ for each entity in the scratch table $\textbf{H}^{(s)}$ computed at epoch $s$ ($s<i$), if $eps$ is greater than $hw$ (less than $lw$), then the labels of the corresponding entities are guaranteed to be $+$ ($-$ respectively) and thus remain unchanged. Otherwise, we use the updated model at epoch $i$ to reclassify those entities. 
 
 %how to compute lower water and higher water
 \paragraph{How to determine the thresholds}
@@ -164,7 +165,7 @@ Intuitively, the two thresholds $hw$ and $lw$ should be adjusted at each epoch $
 
 \begin{equation}
     lw^{(s,i)} = min_{l=s,\dots, i}\epsilon_{low}^{(s,l)},
-    hw^{(s,i)} = min_{l=s,\dots, i}\epsilon_{high}^{(s,l)}
+    hw^{(s,i)} = max_{l=s,\dots, i}\epsilon_{high}^{(s,l)}
 \end{equation}
 
 where $\epsilon_{low}^{(s,l)}$ and $\epsilon_{high}^{(s,l)}$ are computed as (recall that $t.\bar{f}$ represents the feature vector of $t$):
@@ -194,7 +195,7 @@ Recall that the total overhead for reorganization step is $S$, in which the time
     Cost(\bar{\mu}, S, \bar{c}) = \sum_{i=1,2,\dots,N}c^{(\floor{i}_{\bar{\mu}}, i)} + MS
 \end{equation}
 
-Equation \ref{eq: cost} indicates that the total cost not only depends on how to schedule the reorganization step, but also depends on the cost at each epoch, i.e., $\bar{c}$ and $S$. This is because at each epoch, the value of $c^{(\floor{i}_{\bar{\mu}}, i)}$ is known to us only after the incremental step is over (recall that $c^{(s,i)}$ represents the execution time of incremental step), which can influence the accumulated cost $a^{(i)}$ and thus influence the decision at some point (recall that the decision at epoch $i$ depends on whether $a^{(i)}$ is greater than $\alpha S$). So given a strategy $\Phi$, the schedule $\bar{\mu}$ should be a function of $\bar{c}$, i.e. $\bar{\mu} = \Phi(\bar{c})$.
+Equation \ref{eq: cost} indicates that the total cost not only depends on how to schedule the reorganization step, but also depends on the cost at each epoch, i.e., $\bar{c}$ and $S$. This is because at each epoch, the value of $c^{(\floor{i}_{\bar{\mu}}, i)}$ is known to us only after the model is updated and thus $\epsilon^{(s,l)}_{low}$ and $\epsilon^{(s,l)}_{high}$ in Equation \ref{eq: epsilon} can be derived. (recall that $c^{(s,i)}$ is related to the interval $[lw^{(s,i)}, hw^{(s,i)}]$ and $lw^{(s,i)}$, $hw^{(s,i)}$ are derived from $\epsilon^{(s,l)}_{low}$ and $\epsilon^{(s,l)}_{high}$), which can influence the accumulated cost $a^{(i)}$ and thus influence the decision (recall that the decision at epoch $i$ depends on whether $a^{(i)}$ is greater than $\alpha S$). So given a strategy $\Phi$, the schedule $\bar{\mu}$ should be a function of $\bar{c}$, i.e. $\bar{\mu} = \Phi(\bar{c})$.
 
 In order to prove that the skiing strategy is a 2-approximation strategy, the {\em competitive ratio} (denoted by $\rho$) is defined as below, which is a ratio between the cost of a strategy $\Phi$ and and the optimal cost:
 \begin{equation}
@@ -230,7 +231,7 @@ Hazy also provides two types of system variants to achieve the performance enhan
 In the previous sections, it is assumed that the default machine learning algorithm is support vector machine and the problems Hazy is dealing with belong to binary classification problem. But Hazy is also flexible to handle other machine learning models (with kernel methods) and multi-class classification.
 
 \paragraph{Other machine learning model}
-Other linear classification model can be also supported by Hazy, which includes ridge regression and logistic regression. Actually, typical linear classification model can be formalized as {\em convex optimization problem} to derive the best parameter $\bar{w}$, which has same form as Equation \ref{eq: logistic_objective_function} and is usually solved with gradient descent methods. Then the label of an entity with feature values $\bar{x}$ is determined as:
+Other linear classification models are also supported by Hazy, which includes ridge regression and logistic regression. Actually, typical linear classification model can be formalized as {\em convex optimization problem} to derive the best parameter $\bar{w}$, which has same form as Equation \ref{eq: logistic_objective_function} and is usually solved with gradient descent methods. Then the label of an entity with feature values $\bar{x}$ is determined as:
 
 \begin{equation}
     l(\bar{x}) = h(\bar{w}\cdot\bar{x})
@@ -250,7 +251,7 @@ Kernel methods extend linear classification models with kernel function $K: \mat
 \begin{equation}\label{eq: kernel classification}
     l(\bar{x})=h(\Sigma_{i=1,2,\dots,N}c_i\cots K(\bar{s_i}, \bar{x}))
 \end{equation}
-where $\bar{s}_i$ is the {\em support vector} and $c_i$ is the weight value. In this case, the weight vector $\bar{w}$ is: $\bar{w} = \{c_1, c_2,\dots, c_N\}$, which can still fit the eager approach and lazy approach proposed before.
+where $\bar{s}_i$ is the {\em support vector} and $c_i$ is the weight value for the $i_{th}$ kernel function. In this case, the weight vector $\bar{w}$ is: $\bar{w} = [c_1, c_2,\dots, c_N]$, which can still fit the eager approach and lazy approach proposed before.
 
 %linearized kernels
 Some further improvements can be applied to a special type of kernel functions called shift-invariant kernels, which satisfy $K(x, y) = K(x-y)$ where $K$ is a kernel function and regarded as a simple function. Shift-invariant kernels includes many common kernels, such as the Gaussian and the Laplacian kernel. By applying {\em random non-linear feature vectors} \cite{rahimi2008random}, $K(x, y) \approx z(x)^Tz(y)$ where $z$ is a random map: $\mathbb{S}^d \rightarrow R^D$ (suppose $x, y \in \mathbb{S}^d$), which can thus simplify Equation \ref{eq: kernel classification} as below:

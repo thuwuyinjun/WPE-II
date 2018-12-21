@@ -153,7 +153,7 @@ in which $\mu_{jc}$ and $\sigma_{jc}$ are the mean and variance of the $j_{th}$ 
     \mu_{jc} = \frac{\Sigma_{i=1}^nx_{ij}I(y_i=c)}{N_c}
 \end{equation}
 \begin{equation}\label{eq: nb_var}
-    \sigma_{jc}^2 = \frac{\Sigma_{i=1}^n(x_{ij}I(y_i=c)^2}{N_c}-(\frac{\Sigma_{i=1}^nx_{ij}I(y_i=c)}{N_c})^2
+    \sigma_{jc}^2 = \frac{\Sigma_{i=1}^n(x_{ij}I(y_i=c))^2}{N_c}-(\frac{\Sigma_{i=1}^nx_{ij}I(y_i=c)}{N_c})^2
 \end{equation}
 
 in which $x_{ij}$ represents the value of $j_{th}$ feature from the $i_{th}$ data point and $I(y_i=c)$ is an identity function depending on whether the $i_{th}$ data point is in class $c$ or not (it is evaluated to 1 if $y_i$ is $c$ otherwise 0).
