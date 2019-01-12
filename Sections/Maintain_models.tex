@@ -62,15 +62,16 @@ Where $(H^TY)^{x}_i$ ($x \in \{old, new\}$) represents the $i_{th}$ column of $(
 % \end{equation}
 which can be computed with time complexity $Q(k^3)$ where $k$ is the total number of basis functions. As mentioned before, in the simplest case when $H=X$, i.e. $H_i(*)$s are all identity functions and the number of basis functions is the same as the number of features, then $k$ also represents the number of features.
 
-\paragraph{View maintenance for interpolation model} \cite{deshpande2006mauvedb} also processes interpolation model by applying strategy 4, in which the data in the interpolation-based view $\textbf{V}$ will be of the form $(\textbf{t}, \textbf{v})$ where $\textbf{t}$ and $\textbf{v}$ represent predictor variable and response variable respectively. Unlike regression mode where the intermediate representations are the intermediate computation results, the intermediate representations of interpolation model are some auxiliary data structure for searching the values of variable $\textbf{t}$. In order to efficiently estimate the value of $\textbf{v}$ given the value of $\textbf{t}$, $t'$, which is missing from the view instance but queried by users, the closest $\textbf{t}$ values $t_{-}$ and $t_{+}$ (along with the corresponding $\textbf{v}$ values $v_{-}$ and $v_{+}$) to $t'$ are retrieved with the auxillary data structure such that $t'$ lies in the interval $(t_{-}, t_{+})$ without any other $\textbf{t}$ value from $\textbf{V}$ inside the interval. So the estimated $\textbf{v}$ value for $t'$ can be computed using Equation \ref{eq: interpolation}.
+\paragraph{View maintenance for interpolation model} \cite{deshpande2006mauvedb} also processes interpolation model by applying strategy 4, in which the data in the interpolation-based view $\textbf{V}$ will be of the form $(\textbf{t}, \textbf{v})$ where $\textbf{t}$ and $\textbf{v}$ represent predictor variable and response variable respectively. Unlike regression mode where the intermediate representations are the intermediate computation results, the intermediate representations of interpolation model are some auxiliary data structure for searching the values of variable $\textbf{t}$. When new data point $(t', v')$ is inserted into the $\textbf{V}$, then the data structure should be updated to reflect the effect of the insertion such that when predicting the value for $\textbf{v}$ given $\textbf{t}$ value $t''$, the values of $t_{i}$ and $t_{i+1}$ used in Equation \ref{eq: interpolation} for the prediction can be efficiently retrieved with the updated data structure from $\textbf{V}$.
+% In order to efficiently estimate the value of $\textbf{v}$ given the value of $\textbf{t}$, $t'$, which is missing from the view instance but queried by users, the closest $\textbf{t}$ values $t_{-}$ and $t_{+}$ (along with the corresponding $\textbf{v}$ values $v_{-}$ and $v_{+}$) to $t'$ are retrieved with the auxillary data structure such that $t'$ lies in the interval $(t_{-}, t_{+})$ without any other $\textbf{t}$ value from $\textbf{V}$ inside the interval. So the estimated $\textbf{v}$ value for $t'$ can be computed using Equation \ref{eq: interpolation}.
 
 
 \paragraph{View maintenance for Naive Bayes model}
-As mentioned before, \cite{gupta2015processing} deals richer types of machine learning models such as Naive Bayes model and logistic regression model, which still follows the ideas of strategy 4 to maintain the model-based views. In terms of Naive Bayes model, based on Equation \ref{eq: nb_exp} and Equation \ref{eq: nb_guassian}, the membership probability depends on the values of $N_c$, $\mu_{jc}$ and $\sigma_{jc}^2$, in which $\mu_{jc}$ and $\sigma_{jc}^2$ require the sum and square of sum of the feature values within the class $c$, i.e. $\Sigma_{i=1}^n(x_{ij}I(y_i=c))^2$ and $\Sigma_{i=1}^nx_{ij}I(y_i=c)$ (denoted as $S_{jc}$ and $SS_{jc}$ respectively) from Equation \ref{eq: nb_mean} and \ref{eq: nb_var}, which are thus materialized. When a new data point $\bar{x}, y$ comes where $\bar{x}^T = [x_1, x_2, \dots, x_d]$, $N_c$, $S_{jc}$ and $SS_{jc}$ is updated as:
+As mentioned before, \cite{gupta2015processing} deals richer types of machine learning models such as Naive Bayes model and logistic regression model, which still follows the ideas of strategy 4 to maintain the model-based views. In terms of Naive Bayes model, based on Equation \ref{eq: nb_exp} and Equation \ref{eq: nb_guassian}, the membership probability depends on the values of $n_c$, $\mu_{jc}$ and $\sigma_{jc}^2$, in which $\mu_{jc}$ and $\sigma_{jc}^2$ require the sum and square of sum of the feature values within the class $c$, i.e. $\Sigma_{i=1}^n(x_{ij}I(y_i=c))^2$ and $\Sigma_{i=1}^nx_{ij}I(y_i=c)$ (denoted as $SS_{jc}$ and $S_{jc}$ respectively) from Equation \ref{eq: nb_mean} and \ref{eq: nb_var}, which are thus materialized. When a new data point $\bar{x}, y$ comes where $\bar{x}^T = [x_1, x_2, \dots, x_d]$, $n_c$, $S_{jc}$ and $SS_{jc}$ is updated as:
 
 \begin{equation}
     \begin{split}
-        N_c' &= N_c + I(y=c)\\
+        n_c' &= n_c + I(y=c)\\
         S_{jc}' &= S_{jc} + x_jI(y=c)\\
         SS_{jc}'&= SS_{jc} + x_j^2I(y=c)\\ &= SS_{jc} + (x_jI(y=c))^2
     \end{split}
@@ -189,6 +190,7 @@ The {\em reorganization step} for the scratch table $\textbf{H}$ includes recomp
 \subsubsection{Analysis of the greedy strategy}
 Two assumptions about the cost measure are made for {\em skiing strategy}: 1) the cost of incremental step, $c^{(s, i)}$ only depends on the current epoch $i$ and the most recent epoch $s$ for reorganization step since $c^{(s, i)}$ is a function of the number of tuples within the interval $[lw^{(s,i)}, hw^{(s,i)}]$; 2) Reorganization more recently won't increase the cost $c^{s,i}$, which means that $c^{(s, i)} < c^{(s',i)}$ for $s > s'$. The assumptions above can guarantee 2-approximation compared to theoretical optimal strategy. The analysis is sketched as follows.
 
+
 %notations
 Recall that the total overhead for reorganization step is $S$, in which the time to scan $\textbf{H}$ is $\sigma S$. Given $N$ epochs in total, reorganization step is executed $M$ times, which happens at epoch $\mu_1, \mu_2,\dots, \mu_M$ ($0 \leq \mu_1 < \mu_2 < \dots < \mu_M \leq N$), The integer sequence $\bar{\mu} = \mu_1, \mu_2,\dots, \mu_M$is defined as a {\em schedule} under a certain strategy. At any epoch $i$, we define $\floor{i}_{\bar{\mu}} = max\{\mu \in \bar{\mu} | \mu < i\}$, which intuitively returns the most recent epoch before epoch $i$ when {\em reorganization step} is executed. Denote the set of costs for every epoch by $\bar{c} = \{c^{(s,i)}\}$, the total cost of a {\em schedule} will be:
 \begin{equation}\label{eq: cost}
@@ -203,7 +205,7 @@ In order to prove that the skiing strategy is a 2-approximation strategy, the {\
 \end{equation}
 
 
-where $\bar{o}$ represents the optimal schedule. It is proven that $\rho(skiing) = (1+\alpha + \sigma)$ where $\alpha$ is the positive root of $x^2 + \alpha x - 1$ and for any other deterministic strategy, $\rho(\Phi) \geq (1+\alpha + \sigma)$. Specifically, when the number of entities goes to infinity, the time to scan $\textbf{H}$ table, i.e. $\sigma S$ should be approaching 0 (recall that $S$ is the reorganization time, which includes the time to sort $\textbf{H}$. The sorting time is more expensive than scanning time). In this case, $\alpha \rightarrow 1$ and thus $\rho(skiing) \rightarrow 2$.
+where $\bar{o}$ represents the optimal schedule. It is proven that $\rho(skiing) = (1+\alpha + \sigma)$ where $\alpha$ is the positive root of $x^2 + \sigma x - 1$ and for any other deterministic strategy, $\rho(\Phi) \geq (1+\alpha + \sigma)$. Specifically, when the number of entities goes to infinity, the time to scan $\textbf{H}$ table, i.e. $\sigma S$ should be approaching 0 (recall that $S$ is the reorganization time, which includes the time to sort $\textbf{H}$. The sorting time is more expensive than scanning time). In this case, $\alpha \rightarrow 1$ and thus $\rho(skiing) \rightarrow 2$.
 
 % The proof of $\rho(skiing) = (1+\alpha + \sigma)$ is sketched as follows:
 % 
@@ -249,20 +251,45 @@ Since the objective function of other linear classification models share the sam
 \paragraph{Kernel methods}
 Kernel methods extend linear classification models with kernel function $K: \mathbb{R}^d \times \mathbb{R}^d \rightarrow \mathbb{R}$, which is a positive semi-definite function. Given a kernel function, the corresponding classification function would be:
 \begin{equation}\label{eq: kernel classification}
-    l(\bar{x})=h(\Sigma_{i=1,2,\dots,N}c_i\cots K(\bar{s_i}, \bar{x}))
+    l(\bar{x})=h(\Sigma_{i=1,2,\dots,N}c_i\cdot K(\bar{s_i}, \bar{x}))
 \end{equation}
 where $\bar{s}_i$ is the {\em support vector} and $c_i$ is the weight value for the $i_{th}$ kernel function. In this case, the weight vector $\bar{w}$ is: $\bar{w} = [c_1, c_2,\dots, c_N]$, which can still fit the eager approach and lazy approach proposed before.
 
 %linearized kernels
 Some further improvements can be applied to a special type of kernel functions called shift-invariant kernels, which satisfy $K(x, y) = K(x-y)$ where $K$ is a kernel function and regarded as a simple function. Shift-invariant kernels includes many common kernels, such as the Gaussian and the Laplacian kernel. By applying {\em random non-linear feature vectors} \cite{rahimi2008random}, $K(x, y) \approx z(x)^Tz(y)$ where $z$ is a random map: $\mathbb{S}^d \rightarrow R^D$ (suppose $x, y \in \mathbb{S}^d$), which can thus simplify Equation \ref{eq: kernel classification} as below:
 \begin{equation}
-    l(\bar{x})=h(\Sigma_{i=1,2,\dots,N}c_i\cots K(\bar{s_i}, \bar{x})) = h(\Sigma_{i=1,2,\dots,N}c_i\cots z(\bar{s_i})^Tz(\bar{x}))=h(\bar{v}^Tz(\bar{x}))
+    l(\bar{x})=h(\Sigma_{i=1,2,\dots,N}c_i\cots K(\bar{s_i}, \bar{x})) = h(\Sigma_{i=1,2,\dots,N}c_i\cots z(\bar{s_i})^T z(\bar{x}))=h(\bar{v}^T z(\bar{x}))
 \end{equation}
 
-where $v=\sum_{i=1,\dots,N}c_iz(\bar{s_i})$. This technique can substantially reduce the dimension.
+where $v=\sum_{i=1,\dots,N}c_i z(\bar{s_i})$. This technique can substantially reduce the dimension.
 
 \paragraph{Multi-class classification}
 Hazy builds a decision-tree-like structure to turn a multi-classification problem to binary classification problem.
+
+\subsubsection{Experimental results}
+The authors also conducted experiments on three different datasets, i.e. Forest, DBlife and Citeseer to compare the time performance between the skiing strategy (Hazy) and Naive strategy under both on-disk and in memory architecture, which are presented in Table \ref{tab:hazy_exp}. In those experiments, the average time per update in Eager approach and the average time per {\em All members} read query in Lazy approach are recorded.
+
+As Table \ref{tab:hazy_exp} shows, in most cases, Hazy achieves at least one order-of magnitude speed-up relative to Naive implementation even in on-disk architecture. But there is still one exception on update queries over Citeseer datasets, in which Hazy fails to outperform Citeseer. The reason behind that is that Citeseer dataset has larger feature space and thus the model fails to converge by the end of each epoch, which forces Hazy to conduct more unnecessary reorganization steps and thus pay more cost on sorting operation in those steps. But in-memory architecture incurs much less overhead in sorting and thus Hazy is more efficient than Naive implementation.
+
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|c|c|c|c|c|c|c|c|}\hline
+        && \multicolumn{3}{|c|}{Eager {\em Update} (updates/s)}&\multicolumn{3}{|c|}{Lazy {\em All members} (scan/s)}  \\\hhline{~~------}
+        % &&Re-evaluation & Incremental\\ \hline
+        &&Forest&DBLife & Citeseer & Forest & DBLife & Citeseer\\\hline
+    \multirow{2}{*}{On disk}&Naive&0.4 & 2.1 & 0.2 & 1.2 & 12.2 & 0.5\\\hhline{~-------}
+    &Hazy&2.0 & 6.8 & 0.2 & 3.5 & 46.9 & 2.0\\\hline
+    % \multicolumn{2}{|c|}{Hybrid}&2.0 & 6.6 & 0.2 & 8.0 & 48.8 & 2.1\\\hline
+    \multirow{2}{*}{In memory}&Naive&5.3 & 33.1 & 1.8 & 10.4 & 65.7 & 2.4\\\hhline{~-------}
+    &Hazy&49.7 & 160.5 & 7.2 & 410.1 & 2.8k & 105.7\\\hline
+    % \multirow{3}{*}{Space}&Linear & $n^2$ & $n^2k$\\\hhline{~---}
+    % &Exponential & $n^2$ & $n^2log k$\\\hhline{~---}
+    % &Skip-s & $n^2$ & $n^2(logs+\frac{k}{s})$\\\hline
+    \end{tabular}
+    \caption{Experiemental results in Hazy}
+    \label{tab:hazy_exp}
+\end{table}
 
 
 % \subsection{Discussion}

@@ -40,7 +40,18 @@ h_1(\bar{x}_n) & h_2(\bar{x}_n) &\dots &h_k(\bar{x}_n)
 and $Y$ is:
 
 \begin{equation}
-    Y = \{\bar{y_1}, \bar{y_2},\dots, \bar{y_n}\}^T
+    Y=\begin{bmatrix}
+y_{11} & y_{12} &\dots &y_{1t}\\
+y_{21} & y_{22} &\dots &y_{2t}\\
+\dots\\
+y_{n1} & y_{n2} &\dots &y_{nt}\\
+\end{bmatrix}
+=\begin{bmatrix}
+\bar{y}_1^T\\
+\bar{y}_2^T\\
+\dots\\
+\bar{y}_n^T\\
+\end{bmatrix}
 \end{equation}
 
 In general, $H$ will be a matrix which represents data sets of $n$ data points with $k$ features. But in practice, usually the simple case is considered where the exponent of the predictor variables is 1 and there is no cross terms, which means that $h_j(\bar{x}_i) = x_{ij}$ and thus $H$ becomes:
@@ -81,7 +92,7 @@ where $\bar{y}^T = [y_1,y_2,\dots,y_n]$ and $\bar{w}^{*T} =[w_1,w_2,\dots,w_k]$
 
 \paragraph{Interpolation model} 
 
-The goal of interpolation is to estimate missing values of response variables given values of the predictor variables, which does not exist in the set of existing value pair for predictor variable and response variable. Specifically, given a variable pair $(\textbf{t},\textbf{v})$ and a set of observations for those two variables, $\{(t_i, v_i)\}_{i=1}^n$ are then used to estimate value $v'$ of variable $\textbf{v}$ given a value $t'$ of variable $\textbf{t}$ $(t_j< t' < t_{j+1})$. Usually, {\em linear interpolation} is used. So $v'$ is estimated with value pair $(t_j, v_j)$ and $(t_{j+1}, v_{j+1})$ as follows:
+The goal of interpolation is to estimate missing values of response variables given values of the predictor variables, which does not exist in the set of existing value pair for predictor variable and response variable. Specifically, given a variable pair $(\textbf{t},\textbf{v})$ and a set of observations for those two variables, $\{(t_i, v_i)\}_{i=1}^n$ are then used to estimate value $v'$ of variable $\textbf{v}$ given a value $t'$ of variable $\textbf{t}$. Suppose $t_j$ and $t_{j+1}$ are two closest values to $t'$ and $(t_j< t' < t_{j+1})$. Then by using typical {\em linear interpolation}, $v'$ is estimated with value pair $(t_j, v_j)$ and $(t_{j+1}, v_{j+1})$ as follows:
 \begin{equation}\label{eq: interpolation}
     v'= v_j + (v_{j+1}-v_j)\times\frac{t'-t_j}{t_{j+1}-t_j}
 \end{equation}
@@ -139,7 +150,7 @@ Under the assumption that the features in $\bar{x}$ are independent from each ot
     P(\textbf{y}=c|\bar{x}) \propto P(\textbf{y}=c)\Pi_{i=1}^dP(x_i|\textbf{y}=c)
 \end{equation}
 
-in which $P(\textbf{y}=c)$ is usually estimated by the frequency of class $c$. Suppose the size of training data sets is $N$ and the number of data points in class $c$ is $N_c$, then $P(\textbf{y}=c) = \frac{N_c}{N}$.
+in which $P(\textbf{y}=c)$ is usually estimated by the frequency of class $c$. Suppose the size of training data sets is $n$ and the number of data points in class $c$ is $n_c$, then $P(\textbf{y}=c) = \frac{n_c}{n}$.
 
 In practice, for each class $c$, the calculation of $P(x_i|\textbf{y}=c)$ depends on the distribution assumptions over the underlying data. Usually, Gaussian distribution is preferred and thus $P(\bar{x}|\textbf{y}=c)$ is written as:
 
@@ -150,10 +161,10 @@ In practice, for each class $c$, the calculation of $P(x_i|\textbf{y}=c)$ depend
 in which $\mu_{jc}$ and $\sigma_{jc}$ are the mean and variance of the $j_{th}$ feature for the data point belonging to class $c$. The two parameters can be computed as below given a set of training data set $\{(\bar{x}_i, y_i)\}_{i=1}^n$:
 
 \begin{equation}\label{eq: nb_mean}
-    \mu_{jc} = \frac{\Sigma_{i=1}^nx_{ij}I(y_i=c)}{N_c}
+    \mu_{jc} = \frac{\Sigma_{i=1}^nx_{ij}I(y_i=c)}{n_c}
 \end{equation}
 \begin{equation}\label{eq: nb_var}
-    \sigma_{jc}^2 = \frac{\Sigma_{i=1}^n(x_{ij}I(y_i=c))^2}{N_c}-(\frac{\Sigma_{i=1}^nx_{ij}I(y_i=c)}{N_c})^2
+    \sigma_{jc}^2 = \frac{\Sigma_{i=1}^n(x_{ij}I(y_i=c))^2}{n_c}-(\frac{\Sigma_{i=1}^nx_{ij}I(y_i=c)}{n_c})^2
 \end{equation}
 
 in which $x_{ij}$ represents the value of $j_{th}$ feature from the $i_{th}$ data point and $I(y_i=c)$ is an identity function depending on whether the $i_{th}$ data point is in class $c$ or not (it is evaluated to 1 if $y_i$ is $c$ otherwise 0).
@@ -166,6 +177,6 @@ in which $x_{ij}$ represents the value of $j_{th}$ feature from the $i_{th}$ dat
 
 where $d(\bar{x}_i, \{\bar{c}_i\}_{i=1}^k)$ represents the similarity between each $\bar{x}_i$ and the closest centroid to it.
 
-\paragraph{GMM} GMM is the probabilistic version of K-means, which is parameterized by a set of model parameters $\{(w_1, \bar{\mu_1}, \Sigma_1), (w_2, \bar{\mu_2}, \Sigma_2), \dots, (w_k, \bar{\mu_k}, \Sigma_k)\}$ such that the probability of a data point $\bar{x}$ belonging to a cluster $i$ is computed by the probability density function of normal distribution and weighted by $w_i$, i.e.  $w_i\frac{exp(-\frac{1}{2}(\bar{x}-\bar{\mu}_i)^T\Sigma^{-1}(\bar{x}-\bar{\mu}_i))}{\sqrt{(2\pi)^k|\Sigma|}}$. The model parameters are derived during the training process with EM algorithm.
+\paragraph{GMM} GMM is the probabilistic version of K-means, which is parameterized by a set of model parameters $\{(w_1, \bar{\mu_1}, \Sigma_1), (w_2, \bar{\mu_2}, \Sigma_2), \dots, (w_k, \bar{\mu_k}, \Sigma_k)\}$ such that the probability of a data point $\bar{x}$ belonging to a cluster $i$ is computed by the probability density function of normal distribution and weighted by $w_i$, i.e.  $w_i\frac{exp(-\frac{1}{2}(\bar{x}-\bar{\mu}_i)^T\Sigma_i^{-1}(\bar{x}-\bar{\mu}_i))}{\sqrt{(2\pi)^k|\Sigma_i|}}$. The model parameters are derived during the training process with EM algorithm.
 
 \paragraph{GLM} GLM includes a large class of typical linear classifiers such as logistic regression and support vector machine (SVM) and also typical regression methods, such as linear regression.

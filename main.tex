@@ -12,6 +12,8 @@
 \usepackage{amsmath}
 \usepackage{multirow}
 \usepackage{hhline}
+\usepackage{subcaption}
+\usepackage{caption}
 \usepackage[linesnumbered,ruled]{algorithm2e}
 
 \usetikzlibrary{%
@@ -30,7 +32,7 @@
 \newenvironment{proof}{\paragraph{Proof:}}{\hfill$\square$}
 
 
-\title{Toward efficient incremental computations in data analytics: a review of recent research}
+\title{Toward efficient computations in data analytics: a review of recent research}
 \author{wuyinjun }
 \date{}
 \onespacing
@@ -40,6 +42,7 @@
 \maketitle
 
 \begin{abstract}
+Machine learning algorithms have become ubiquitous in data analytics, in which performance metrics such as precision and recall have been a major concern for the stakeholders. However, there are also growing interests in reducing the running time in data analytics, where typical solution is to cache some pre-computed results which are termed as \textit{views} in database domain. Afterwards, they are {\em incrementally updated} to reflect the input change or {\em reused} for constructing other related computation results, which have been shown to outperform naive implementation (i.e. re-evaluation from the scratch) in various applications. We survey and compare several works on this topic in the last few years and discuss possible research opportunities.
     
 \end{abstract}
 
