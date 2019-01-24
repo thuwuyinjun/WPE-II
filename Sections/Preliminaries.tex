@@ -13,7 +13,8 @@ For example, in wireless sensor network application (see \cite{deshpande2006mauv
 \begin{equation}
 \textbf{t}=w_1 + w_2\textbf{x}_1+w_3\textbf{x}_1^2 + w_4\textbf{x}_2+w_5\textbf{x}_2^2
 \end{equation}
-where the basis functions are $\{h_1(\textbf{x}_1,\textbf{x}_2), h_2(\textbf{x}_1,\textbf{x}_2), h_3(\textbf{x}_1,\textbf{x}_2),h_4(\textbf{x}_1,\textbf{x}_2), h_5(\textbf{x}_1,\textbf{x}_2)\}=\{1, \textbf{x}_1, \textbf{x}_1^2, \textbf{x}_2, \textbf{x}_2^2\}$ and there is only one {\em response variable} such that the coefficients $w_1$-$w_5$ are scalar values.
+where the basis functions are $\{h_1(\textbf{x}_1,\textbf{x}_2), h_2(\textbf{x}_1,\textbf{x}_2), h_3(\textbf{x}_1,\textbf{x}_2),h_4(\textbf{x}_1,\textbf{x}_2), h_5(\textbf{x}_1,\textbf{x}_2)\}=\{1, \textbf{x}_1, \textbf{x}_1^2, \textbf{x}_2, \textbf{x}_2^2\}$ and there is only one {\em response variable} $\textbf{t}$.
+% such that the coefficients $w_1$-$w_5$ are scalar values.
 
 Given a set of data points\eat{ observed from the underlying wireless sensors located at different positions}, $\{\bar{x}_j,\bar{y_j}\}_{j=1}^n$, where $\bar{x}_j^T=[x_{j1},x_{j2}, \dots, x_{jr}]$ and $\bar{y}_j^T=[y_{j1},y_{j2}, \dots, y_{jt}]$, the coefficients $W^* = [\bar{w_1},\bar{w_2},\dots,\bar{w_k}]$ are estimated with the following linear system:
 \begin{equation}\label{eq: regression_solve}
@@ -92,7 +93,7 @@ where $\bar{y}^T = [y_1,y_2,\dots,y_n]$ and $\bar{w}^{*T} =[w_1,w_2,\dots,w_k]$
 
 \paragraph{Interpolation model} 
 
-The goal of interpolation is to estimate missing values of response variables given values of the predictor variables, which does not exist in the set of existing value pair for predictor variable and response variable. Specifically, given a variable pair $(\textbf{t},\textbf{v})$ and a set of observations for those two variables, $\{(t_i, v_i)\}_{i=1}^n$ are then used to estimate value $v'$ of variable $\textbf{v}$ given a value $t'$ of variable $\textbf{t}$. Suppose $t_j$ and $t_{j+1}$ are two closest values to $t'$ and $(t_j< t' < t_{j+1})$. Then by using typical {\em linear interpolation}, $v'$ is estimated with value pair $(t_j, v_j)$ and $(t_{j+1}, v_{j+1})$ as follows:
+The goal of interpolation is to estimate missing values of response variables given values of the predictor variables, which does not exist in the set of existing value pair of predictor variable and response variable. Specifically, given a variable pair $(\textbf{t},\textbf{v})$ and a set of observations for those two variables, $\{(t_i, v_i)\}_{i=1}^n$ are then used to estimate value $v'$ of variable $\textbf{v}$ given a value $t'$ of variable $\textbf{t}$. Suppose $t_j$ and $t_{j+1}$ are two closest values to $t'$ and $(t_j< t' < t_{j+1})$. Then by using typical {\em linear interpolation}, $v'$ is estimated with value pair $(t_j, v_j)$ and $(t_{j+1}, v_{j+1})$ as follows:
 \begin{equation}\label{eq: interpolation}
     v'= v_j + (v_{j+1}-v_j)\times\frac{t'-t_j}{t_{j+1}-t_j}
 \end{equation}
@@ -100,7 +101,7 @@ The goal of interpolation is to estimate missing values of response variables gi
 
 
 \paragraph{Logistic regression}
-Logistic regression is a typical linear classifier, which computes the probability of the membership of the data points with logistic function but has linear decision boundary. In the case of binary classification, the model uses the following function to determine the class probability:
+Logistic regression is a typical linear classifier, which computes the probability of the membership of the data points with logistic function. In the case of binary classification, the model uses the following function to determine the class probability:
 
 \begin{equation}\label{eq: logistic_regression_prob}
     P(\textbf{y}=y|\bar{x}) = \frac{1}{1+e^{-y\bar{w}^T\bar{x}}}
@@ -115,7 +116,7 @@ To identify the model parameter $\bar{w}^T$ given a set of training data points,
 
 where $L$ is the loss function, which is usually the cross entropy loss function as below:
 \begin{equation}\label{eq: logistic_loss_function}
-    L(\bar{w}; \bar{x}_i, y_i) = y_ilogP(\textbf{y}=y_i|\bar{x}_i) + (1-y_i)log(1-P(\textbf{y}=y_i|\bar{x}_i))
+    L(\bar{w}; \bar{x}_i, y_i) = logP(\textbf{y}=y_i|\bar{x}_i)
 \end{equation}
 
 and $R(\bar{w})$ is the regularization term, which is usually $L2$ term:
@@ -175,7 +176,7 @@ in which $x_{ij}$ represents the value of $j_{th}$ feature from the $i_{th}$ dat
     SSE = \sum_{i=1}^nd(\bar{x}_i, \{\bar{c}_i\}_{i=1}^k)
 \end{equation}
 
-where $d(\bar{x}_i, \{\bar{c}_i\}_{i=1}^k)$ represents the similarity between each $\bar{x}_i$ and the closest centroid to it.
+where $d(\bar{x}_i, \{\bar{c}_i\}_{i=1}^k)$ represents the distance between each $\bar{x}_i$ and the closest centroid to it.
 
 \paragraph{GMM} GMM is the probabilistic version of K-means, which is parameterized by a set of model parameters $\{(w_1, \bar{\mu_1}, \Sigma_1), (w_2, \bar{\mu_2}, \Sigma_2), \dots, (w_k, \bar{\mu_k}, \Sigma_k)\}$ such that the probability of a data point $\bar{x}$ belonging to a cluster $i$ is computed by the probability density function of normal distribution and weighted by $w_i$, i.e.  $w_i\frac{exp(-\frac{1}{2}(\bar{x}-\bar{\mu}_i)^T\Sigma_i^{-1}(\bar{x}-\bar{\mu}_i))}{\sqrt{(2\pi)^k|\Sigma_i|}}$. The model parameters are derived during the training process with EM algorithm.
 
